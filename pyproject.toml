@@ -1,0 +1,23 @@
+[project]
+name = "hekerbot"
+version = "0.1.0"
+description = "Autonomous Agentic Red Teaming Framework"
+authors = [
+    {name = "Gemini CLI", email = "gemini-cli@google.com"}
+]
+dependencies = [
+    "rich>=13.0.0",
+    "prompt-toolkit>=3.0.0",
+    "docker>=7.0.0",
+    "pydantic>=2.0.0",
+    "litellm>=1.0.0",
+    "python-dotenv>=1.0.0"
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+hekerbot = "hekerbot.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
