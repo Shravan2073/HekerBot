@@ -1,0 +1,2 @@
+[console_scripts]
+hekerbot = hekerbot.main:main
