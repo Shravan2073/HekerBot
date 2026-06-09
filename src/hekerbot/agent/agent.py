@@ -33,6 +33,8 @@ class HekerAgent:
             with console.status("[bold blue]Agent is thinking...[/bold blue]"):
                 decision = self.brain.think(observation)
             
+            if not self.running: break
+
             thought = decision.get("thought", "...")
             command = decision.get("command", "")
             finished = decision.get("finished", False)
@@ -58,8 +60,15 @@ class HekerAgent:
             console.print(f"[bold magenta]Executing:[/bold magenta] [cyan]{command}[/cyan]")
             
             with console.status(f"[bold yellow]Running {command.split()[0]}...[/bold yellow]"):
-                result = self.executor.execute_command(command)
+                try:
+                    result = self.executor.execute_command(command)
+                except Exception as e:
+                    console.print(f"[bold red]Docker Error:[/bold red] {str(e)}")
+                    observation = f"Error executing command: {str(e)}"
+                    continue
             
+            if not self.running: break
+
             stdout = result.get("stdout", "")
             stderr = result.get("stderr", "")
             exit_code = result.get("exit_code", 0)
@@ -86,6 +95,8 @@ class HekerAgent:
             self.persistence.save_session(self.current_state)
             
             time.sleep(1)
+        
+        console.print(f"[yellow]Mission {session_id} stopped.[/yellow]")
 
     def stop(self):
         self.running = False

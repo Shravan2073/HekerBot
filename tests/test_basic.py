@@ -18,5 +18,17 @@ class TestHekerBot(unittest.TestCase):
         self.assertEqual(executor.image_name, "hekerbot-sandbox")
         self.assertEqual(executor.client, mock_client)
 
+    @patch('docker.from_env')
+    def test_executor_is_available(self, mock_docker):
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        executor = DockerExecutor()
+        self.assertTrue(executor.is_available())
+        
+        # Test failure
+        mock_docker.side_effect = Exception("Docker not running")
+        executor = DockerExecutor()
+        self.assertFalse(executor.is_available())
+
 if __name__ == "__main__":
     unittest.main()

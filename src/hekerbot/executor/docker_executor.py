@@ -4,8 +4,46 @@ from typing import Dict, Any
 
 class DockerExecutor:
     def __init__(self, image_name: str = "hekerbot-sandbox"):
-        self.client = docker.from_env()
+        self._client = None
         self.image_name = image_name
+        self._available = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            try:
+                self._client = docker.from_env()
+                # Test the connection
+                self._client.ping()
+                self._available = True
+            except Exception as e:
+                self._available = False
+                error_msg = str(e)
+                if "Permission denied" in error_msg:
+                    hint = "\nHint: You may need to add your user to the 'docker' group: sudo usermod -aG docker $USER"
+                else:
+                    hint = "\nHint: Ensure the Docker daemon is running."
+                
+                raise RuntimeError(
+                    f"Could not connect to Docker: {error_msg}{hint}"
+                ) from e
+        return self._client
+
+    def is_available(self) -> bool:
+        """Check if Docker is available without raising an exception."""
+        if self._available is False:
+            return False
+        if self._client is not None:
+            return True
+        
+        try:
+            client = docker.from_env()
+            client.ping()
+            self._available = True
+            return True
+        except Exception:
+            self._available = False
+            return False
 
     def build_image(self):
         """Build the sandbox image from the Dockerfile in the root directory."""
