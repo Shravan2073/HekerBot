@@ -8,7 +8,7 @@ from rich.spinner import Spinner
 import time
 import uuid
 
-console = Console()
+console = Console(color_system=None)
 
 class HekerAgent:
     def __init__(self, model: str = None):
@@ -30,13 +30,14 @@ class HekerAgent:
         observation = None
         while self.running:
             # 1. Think
-            with console.status("[bold blue]Agent is thinking...[/bold blue]"):
-                decision = self.brain.think(observation)
+            console.print("[bold blue]Agent is thinking...[/bold blue]")
+            decision = self.brain.think(observation, self.current_state.discovery_graph)
             
             if not self.running: break
 
             thought = decision.get("thought", "...")
             command = decision.get("command", "")
+            updates = decision.get("updates")
             finished = decision.get("finished", False)
 
             # Record thought
@@ -44,6 +45,18 @@ class HekerAgent:
 
             # Display Thought
             console.print(Panel(thought, title="[bold blue]Thought[/bold blue]", border_style="blue"))
+
+            # Process Updates
+            if updates and isinstance(updates, dict):
+                ip = updates.get("ip")
+                if ip:
+                    self.current_state.update_asset(
+                        ip=ip,
+                        hostname=updates.get("hostname"),
+                        ports=updates.get("new_ports"),
+                        vulnerabilities=updates.get("new_vulnerabilities")
+                    )
+                    console.print(f"[bold green]Knowledge Graph Updated:[/bold green] {ip}")
 
             if finished:
                 summary = decision.get("summary", "Mission completed.")
@@ -59,13 +72,13 @@ class HekerAgent:
             # 2. Act (Execute in sandbox)
             console.print(f"[bold magenta]Executing:[/bold magenta] [cyan]{command}[/cyan]")
             
-            with console.status(f"[bold yellow]Running {command.split()[0]}...[/bold yellow]"):
-                try:
-                    result = self.executor.execute_command(command)
-                except Exception as e:
-                    console.print(f"[bold red]Docker Error:[/bold red] {str(e)}")
-                    observation = f"Error executing command: {str(e)}"
-                    continue
+            console.print(f"[bold yellow]Running {command.split()[0]}...[/bold yellow]")
+            try:
+                result = self.executor.execute_command(command)
+            except Exception as e:
+                console.print(f"[bold red]Docker Error:[/bold red] {str(e)}")
+                observation = f"Error executing command: {str(e)}"
+                continue
             
             if not self.running: break
 

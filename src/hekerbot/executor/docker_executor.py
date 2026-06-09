@@ -47,11 +47,14 @@ class DockerExecutor:
 
     def build_image(self):
         """Build the sandbox image from the Dockerfile in the root directory."""
-        print(f"Building Docker image {self.image_name}...")
+        from rich.console import Console
+        console = Console(color_system=None)
+        console.print(f"Building Docker image {self.image_name}...")
+
         image, logs = self.client.images.build(path=".", tag=self.image_name, rm=True)
         for line in logs:
             if 'stream' in line:
-                print(line['stream'].strip())
+                console.print(line['stream'].strip(), style="dim")
         return image
 
     def execute_command(self, command: str, timeout: int = 300) -> Dict[str, Any]:
