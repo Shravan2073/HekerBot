@@ -42,7 +42,7 @@ HekerBOT ensures that no progress is lost during long-running engagements:
 
 ## 6. Multi-Provider LLM Support
 Leveraging `LiteLLM`, HekerBOT is model-agnostic:
-*   **Google Gemini**: Optimized for long context and complex reasoning (e.g., `gemini-1.5-pro`).
+*   **Google Gemini**: Optimized for long context and complex reasoning (e.g., `gemini-2.5-pro`).
 *   **OpenAI GPT**: Industry-standard performance with `gpt-4-turbo`.
 *   **Anthropic Claude**: Excellent for structured output and safety-aligned reasoning.
 
