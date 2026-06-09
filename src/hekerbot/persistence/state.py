@@ -26,6 +26,22 @@ class SessionState(BaseModel):
     command_results: List[CommandResult] = Field(default_factory=list)
     discovery_graph: Dict[str, Asset] = Field(default_factory=dict) # IP -> Asset
 
+    def update_asset(self, ip: str, hostname: Optional[str] = None, ports: List[int] = None, vulnerabilities: List[str] = None):
+        if ip not in self.discovery_graph:
+            self.discovery_graph[ip] = Asset(ip=ip)
+        
+        asset = self.discovery_graph[ip]
+        if hostname:
+            asset.hostname = hostname
+        if ports:
+            for port in ports:
+                if port not in asset.ports:
+                    asset.ports.append(port)
+        if vulnerabilities:
+            for vuln in vulnerabilities:
+                if vuln not in asset.vulnerabilities:
+                    asset.vulnerabilities.append(vuln)
+
 class PersistenceManager:
     def __init__(self, storage_dir: str = "sessions"):
         self.storage_dir = storage_dir
