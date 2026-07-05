@@ -44,12 +44,12 @@ class HekerAgent:
         session_id = str(uuid.uuid4())[:8]
         self.current_state = SessionState(session_id=session_id, target=target)
         
-        console.print(Panel(f"Starting mission [bold magenta]{session_id}[/bold magenta] on target: [bold cyan]{target}[/bold cyan]", title="Mission Initialized", border_style="green"))
+        console.print(f"[*] Starting mission {session_id} on target: {target}")
         
         observation = None
         while self.running:
             # 1. Think
-            console.print("[bold blue]Agent is thinking...[/bold blue]")
+            console.print("[*] Agent is thinking...")
             decision = self.brain.think(observation, self.current_state.discovery_graph)
             
             if not self.running: break
@@ -63,7 +63,7 @@ class HekerAgent:
             self.current_state.history.append(decision)
 
             # Display Thought
-            console.print(Panel(thought, title="[bold blue]Thought[/bold blue]", border_style="blue"))
+            console.print(f"\n[THOUGHT]\n{thought}\n")
 
             # Process Updates
             if updates and isinstance(updates, dict):
@@ -75,27 +75,26 @@ class HekerAgent:
                         ports=updates.get("new_ports"),
                         vulnerabilities=updates.get("new_vulnerabilities")
                     )
-                    console.print(f"[bold green]Knowledge Graph Updated:[/bold green] {ip}")
+                    console.print(f"[+] Knowledge Graph Updated: {ip}")
 
             if finished:
                 summary = decision.get("summary", "Mission completed.")
-                console.print(Panel(summary, title="[bold green]Mission Complete[/bold green]", border_style="green"))
+                console.print(f"\n[MISSION COMPLETE]\n{summary}")
                 self.running = False
                 break
 
             if not command:
-                console.print("[yellow]Agent provided no command. Retrying...[/yellow]")
+                console.print("[-] Agent provided no command. Retrying...")
                 observation = "No command provided. Please specify a tool and arguments."
                 continue
 
             # 2. Act (Execute command in selected mode)
-            console.print(f"[bold magenta]Executing:[/bold magenta] [cyan]{command}[/cyan]")
+            console.print(f"[*] Executing: {command}")
             
-            console.print(f"[bold yellow]Running {command.split()[0]}...[/bold yellow]")
             try:
                 result = self.active_executor().execute_command(command)
             except Exception as e:
-                console.print(f"[bold red]Execution Error:[/bold red] {str(e)}")
+                console.print(f"[!] Execution Error: {str(e)}")
                 observation = f"Error executing command: {str(e)}"
                 continue
             
@@ -116,10 +115,9 @@ class HekerAgent:
 
             # 3. Observe
             if stdout:
-                console.print("[dim]STDOUT:[/dim]")
-                console.print(stdout[:500] + ("..." if len(stdout) > 500 else "")) 
+                console.print(f"[STDOUT]\n{stdout}")
             if stderr:
-                console.print(f"[bold red]STDERR:[/bold red] {stderr}")
+                console.print(f"[STDERR]\n{stderr}")
 
             observation = f"Exit code: {exit_code}\nSTDOUT: {stdout}\nSTDERR: {stderr}"
             
@@ -128,7 +126,11 @@ class HekerAgent:
             
             time.sleep(1)
         
-        console.print(f"[yellow]Mission {session_id} stopped.[/yellow]")
+        console.print(f"Mission {session_id} stopped.")
 
     def stop(self):
         self.running = False
+        try:
+            self.active_executor().kill_active()
+        except AttributeError:
+            pass

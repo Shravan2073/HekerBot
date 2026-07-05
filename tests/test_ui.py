@@ -11,9 +11,7 @@ async def test_app_starts():
 async def test_sidebar_navigation():
     app = HekerApp()
     async with app.run_test() as pilot:
-        option_list = app.query_one("OptionList")
+        option_list = app.screen.query_one("OptionList")
         assert option_list is not None
-        assert app.current_view == "start" # Default
-        await pilot.press("down")
         await pilot.press("enter")
-        assert app.current_view == "stop"
+        assert type(app.screen).__name__ == "DashboardScreen"

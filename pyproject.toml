@@ -3,7 +3,7 @@ name = "hekerbot"
 version = "0.1.0"
 description = "Autonomous Agentic Red Teaming Framework"
 authors = [
-    {name = "Gemini CLI", email = "gemini-cli@google.com"}
+    {name = "Shravan", email = "shravan@shravan.lol"}
 ]
 dependencies = [
     "textual>=0.40.0",

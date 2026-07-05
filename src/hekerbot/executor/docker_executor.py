@@ -7,6 +7,22 @@ class DockerExecutor:
         self._client = None
         self.image_name = image_name
         self._available = None
+        self.current_container = None
+
+    @property
+    def is_active(self) -> bool:
+        """Check if a container is currently running a command."""
+        return self.current_container is not None
+
+    def kill_active(self) -> None:
+        """Kill the currently running container."""
+        if self.current_container:
+            try:
+                self.current_container.kill()
+                self.current_container.remove(force=True)
+            except Exception:
+                pass
+            self.current_container = None
 
     @property
     def client(self):
@@ -67,6 +83,7 @@ class DockerExecutor:
                 network_mode="bridge",
                 cap_add=["NET_RAW", "NET_ADMIN"]
             )
+            self.current_container = container
             
             # Wait for container to finish or timeout
             try:
@@ -75,11 +92,15 @@ class DockerExecutor:
             except Exception as e:
                 container.kill()
                 return {"stdout": "", "stderr": f"Command timed out after {timeout}s", "exit_code": -1}
+            finally:
+                self.current_container = None
 
-            stdout = container.logs(stdout=True, stderr=False).decode("utf-8")
-            stderr = container.logs(stdout=False, stderr=True).decode("utf-8")
-            
-            container.remove()
+            try:
+                stdout = container.logs(stdout=True, stderr=False).decode("utf-8")
+                stderr = container.logs(stdout=False, stderr=True).decode("utf-8")
+                container.remove()
+            except Exception:
+                stdout, stderr = "", ""
             
             return {
                 "stdout": stdout,

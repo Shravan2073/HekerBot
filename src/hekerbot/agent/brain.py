@@ -86,7 +86,7 @@ Be concise in your thoughts.
 
 class HekerBrain:
     def __init__(self, model: str = None):
-        self.model = model or os.getenv("HEKER_MODEL", "gpt-4-turbo-preview")
+        self.model = model or os.getenv("HEKER_MODEL", "opencode/deepseek-coder")
         self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     def think(self, observation: str = None, current_state: Any = None) -> Dict[str, Any]:
@@ -101,10 +101,27 @@ class HekerBrain:
             self.history.append({"role": "user", "content": prompt})
 
         try:
+            call_model = self.model
+            kwargs = {}
+            
+            # Map opencode custom provider to openai compatible endpoint
+            if call_model.startswith("opencode/") or call_model == "opencode":
+                call_model = call_model.replace("opencode/", "openai/") if "/" in call_model else "openai/opencode"
+                
+                opencode_key = os.getenv("OPENCODE_API_KEY")
+                if opencode_key:
+                    kwargs["api_key"] = opencode_key
+                    os.environ["OPENAI_API_KEY"] = opencode_key
+                
+                if not os.getenv("OPENAI_BASE_URL") and not os.getenv("OPENAI_API_BASE"):
+                    kwargs["api_base"] = "https://opencode.ai/zen/go/v1"
+                    os.environ["OPENAI_API_BASE"] = "https://opencode.ai/zen/go/v1"
+
             response = litellm.completion(
-                model=self.model,
+                model=call_model,
                 messages=self.history,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                **kwargs
             )
             
             content = response.choices[0].message.content
@@ -112,21 +129,38 @@ class HekerBrain:
             self.history.append({"role": "assistant", "content": content})
             
             # Robust JSON parsing
+            content = content.strip()
             try:
                 return json.loads(content)
-            except json.JSONDecodeError:
-                # Try to extract JSON from markdown blocks
+            except json.JSONDecodeError as e:
+                # Try to extract JSON from markdown blocks or raw {}
                 import re
-                match = re.search(r"```json\n?(.*?)\n?```", content, re.DOTALL)
+                
+                # 1. Try markdown blocks with optional 'json' tag
+                match = re.search(r"```(?:json)?\n?(.*?)\n?```", content, re.DOTALL | re.IGNORECASE)
                 if match:
                     try:
-                        return json.loads(match.group(1))
+                        return json.loads(match.group(1).strip())
                     except json.JSONDecodeError:
                         pass
-                raise
+                
+                # 2. Try raw curly brace extraction
+                start = content.find('{')
+                end = content.rfind('}')
+                if start != -1 and end != -1 and end > start:
+                    try:
+                        return json.loads(content[start:end+1])
+                    except json.JSONDecodeError:
+                        pass
+                
+                raise Exception(f"Failed to parse JSON. Raw LLM response: {content[:100]}...") from e
+
         except Exception as e:
+            err_msg = str(e)
+            if "Expecting value" in err_msg and "char 0" in err_msg:
+                err_msg = "LLM returned an empty or invalid response. Check your API key and base URL."
             return {
-                "thought": f"Error thinking: {str(e)}",
+                "thought": f"Error thinking: {err_msg}",
                 "command": "echo 'error'",
                 "finished": True
             }
