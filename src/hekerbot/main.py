@@ -22,8 +22,8 @@ def main():
     else:
         load_dotenv()
 
-    from hekerbot.ui.shell import HekerShell
-    shell = HekerShell()
+    from hekerbot.ui.shell import HekerApp
+    shell = HekerApp()
     shell.run()
 
 if __name__ == "__main__":
