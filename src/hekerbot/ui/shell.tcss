@@ -1,0 +1,16 @@
+Screen {
+    layout: horizontal;
+    background: $surface;
+}
+
+#sidebar {
+    width: 30%;
+    height: 100%;
+    border-right: vkey $background;
+}
+
+#content-area {
+    width: 70%;
+    height: 100%;
+    padding: 1 2;
+}

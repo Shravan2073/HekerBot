@@ -6,8 +6,8 @@ authors = [
     {name = "Gemini CLI", email = "gemini-cli@google.com"}
 ]
 dependencies = [
-    "rich>=13.0.0",
-    "prompt-toolkit>=3.0.0",
+    "textual>=0.40.0",
+    "pytest-asyncio",
     "docker>=7.0.0",
     "pydantic>=2.0.0",
     "litellm>=1.40.0",
@@ -17,6 +17,7 @@ requires-python = ">=3.10"
 
 [project.scripts]
 hekerbot = "hekerbot.main:main"
+hkb = "hekerbot.main:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
