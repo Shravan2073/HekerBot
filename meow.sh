@@ -2,109 +2,107 @@
 set -e
 
 # HekerBOT Web Install Script
-# Designed to be run via: curl -sL https://shravan.lol/install.sh | bash
+# curl -sL https://shravan.lol/install.sh | bash
 
-echo -e "\033[1;35m"
-echo "  _   _      _             ____   ___ _____ "
-echo " | | | | ___| | _____ _ __| __ ) / _ \_   _|"
-echo " | |_| |/ _ \ |/ / _ \ '__|  _ \| | | || |  "
-echo " |  _  |  __/   <  __/ |  | |_) | |_| || |  "
-echo " |_| |_|\___|_|\_\___|_|  |____/ \___/ |_|  "
-echo "                                            "
-echo -e "\033[0m"
+# Colors & Formatting
+C_RESET="\033[0m"
+C_GREEN="\033[1;32m"
+C_BLUE="\033[1;34m"
+C_RED="\033[1;31m"
+C_YELLOW="\033[1;33m"
+C_DIM="\033[90m"
+C_BOLD="\033[1m"
 
-echo -e "\033[1;32m[*] Initializing HekerBOT Installation...\033[0m"
+# Print Banner
+echo -e "${C_BLUE}"
+echo "    __  __     __                   ____  ____  ________"
+echo "   / / / /__  / /_____  _____      / __ )/ __ \/_  __/"
+echo "  / /_/ / _ \/ //_/ _ \/ ___/_____/ __  / / / / / /   "
+echo " / __  /  __/ ,< /  __/ /  /_____/ /_/ / /_/ / / /    "
+echo "/_/ /_/\___/_/|_|\___/_/        /_____/\____/ /_/     "
+echo -e "${C_RESET}"
+echo -e "         ${C_DIM}Autonomous Agentic Red Teaming Framework${C_RESET}"
+echo ""
 
-# 1. Check requirements first
-if ! command -v git &> /dev/null; then
-    echo -e "\033[1;31m[-] git could not be found. Please install git.\033[0m"
-    exit 1
+# Helper functions
+step() { echo -e " ${C_BLUE}➜${C_RESET}  $1"; }
+success() { echo -e " ${C_GREEN}✔${C_RESET}  $1"; }
+warn() { echo -e " ${C_YELLOW}⚠${C_RESET}  $1"; }
+error() { echo -e " ${C_RED}✖${C_RESET}  $1"; exit 1; }
+
+# 1. Check Requirements
+step "Checking system requirements..."
+command -v git >/dev/null || error "git is not installed."
+command -v python3 >/dev/null || error "python3 is not installed."
+
+HAS_DOCKER=1
+if ! command -v docker >/dev/null || ! docker info >/dev/null 2>&1; then
+    warn "Docker daemon not available. Sandbox disabled."
+    HAS_DOCKER=0
 fi
+success "Requirements satisfied."
 
-if ! command -v python3 &> /dev/null; then
-    echo -e "\033[1;31m[-] Python3 could not be found. Please install Python 3.10+\033[0m"
-    exit 1
-fi
-
-if ! command -v docker &> /dev/null; then
-    echo -e "\033[1;33m[!] Docker could not be found. Sandbox features will be disabled.\033[0m"
-else
-    if ! docker info &> /dev/null; then
-        echo -e "\033[1;33m[!] Docker daemon is not running or lacks permissions. Fix later with: sudo usermod -aG docker \$USER\033[0m"
-    fi
-fi
-
-# 2. Clone the repository
+# 2. Clone Repository
 INSTALL_DIR="$HOME/HekerBOT"
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "\033[1;33m[*] Directory $INSTALL_DIR already exists. Updating...\033[0m"
-    cd "$INSTALL_DIR"
-    git pull
+    step "Updating existing repository..."
+    cd "$INSTALL_DIR" && git pull --quiet
 else
-    echo -e "\033[1;34m[*] Cloning HekerBOT to $INSTALL_DIR...\033[0m"
-    git clone https://github.com/Shravan2073/HekerBOT.git "$INSTALL_DIR"
+    step "Cloning repository..."
+    git clone --quiet https://github.com/Shravan2073/HekerBOT.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
+success "Repository ready."
 
-# 3. Create .env if it doesn't exist
-if [ ! -f .env ]; then
-    if [ -f .env.example ]; then
-        echo -e "\033[1;34m[*] Creating default .env file...\033[0m"
-        cp .env.example .env
-        echo -e "\033[1;33m[!] IMPORTANT: Remember to edit ~/HekerBOT/.env to add your API keys later!\033[0m"
-    fi
+# 3. Setup Environment
+if [ ! -f .env ] && [ -f .env.example ]; then
+    step "Creating .env template..."
+    cp .env.example .env
+    warn "Please edit $INSTALL_DIR/.env to add your API keys later."
 fi
 
-# 4. Setup Python Environment
-echo -e "\033[1;34m[*] Setting up Python virtual environment...\033[0m"
+step "Setting up virtual environment & dependencies..."
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -e . --quiet
+success "Dependencies installed."
 
-echo -e "\033[1;34m[*] Installing dependencies...\033[0m"
-pip install -e .
-
-# 5. Build Docker Image (if docker is available and working)
-if command -v docker &> /dev/null && docker info &> /dev/null; then
-    echo -e "\033[1;34m[*] Building Docker Sandbox Image (hekerbot-sandbox)...\033[0m"
-    docker build -t hekerbot-sandbox .
+# 4. Build Sandbox
+if [ $HAS_DOCKER -eq 1 ]; then
+    step "Building Docker Sandbox (this might take a minute)..."
+    docker build -t hekerbot-sandbox . > /dev/null 2>&1
+    success "Docker sandbox ready."
 fi
 
-# 6. Create `hkb` wrapper script
-echo -e "\033[1;34m[*] Creating 'hkb' shortcut...\033[0m"
+# 5. Create executable
+step "Configuring 'hkb' shortcut..."
 mkdir -p ~/.local/bin
-
 cat << EOF > ~/.local/bin/hkb
 #!/bin/bash
-# HekerBOT execution wrapper
 cd "${INSTALL_DIR}"
-
-# Fast, silent check for updates (timeout prevents hanging if offline)
-echo -ne "\033[90m[*] Checking for updates...\r\033[0m"
 if timeout 3 git fetch origin main --quiet 2>/dev/null; then
-    LOCAL=\$(git rev-parse HEAD 2>/dev/null)
-    REMOTE=\$(git rev-parse origin/main 2>/dev/null)
-    if [ -n "\$LOCAL" ] && [ -n "\$REMOTE" ] && [ "\$LOCAL" != "\$REMOTE" ]; then
-        echo -e "\n\033[1;33m[*] New version detected! Updating HekerBOT...\033[0m"
+    L=\$(git rev-parse HEAD 2>/dev/null)
+    R=\$(git rev-parse origin/main 2>/dev/null)
+    if [ -n "\$L" ] && [ -n "\$R" ] && [ "\$L" != "\$R" ]; then
         git pull --quiet
         source .venv/bin/activate
         pip install -e . --quiet
-        echo -e "\033[1;32m[*] Update complete.\033[0m"
     fi
 fi
-echo -ne "\033[2K\r"
-
 source "${INSTALL_DIR}/.venv/bin/activate"
 exec hekerbot "\$@"
 EOF
-
 chmod +x ~/.local/bin/hkb
+success "Shortcut created."
 
-echo -e "\033[1;32m============================================================\033[0m"
-echo -e "\033[1;32m[+] HekerBOT successfully installed!\033[0m"
-echo -e "\033[1;32m[+] To start the application, just type:\033[0m"
-echo -e "\033[1;37m    hkb\033[0m"
+# 6. Finish
+echo ""
+echo -e "${C_GREEN}${C_BOLD}Installation Complete!${C_RESET}"
+echo -e "You can now launch the application by typing: ${C_BOLD}hkb${C_RESET}"
+
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    echo -e "\033[1;33m[!] Note: ~/.local/bin is not in your PATH.\033[0m"
-    echo -e "\033[1;33m    You must run 'export PATH=\$HOME/.local/bin:\$PATH' to use the 'hkb' command!\033[0m"
+    echo ""
+    warn "~/.local/bin is not in your PATH."
+    echo -e "    Run: ${C_BOLD}export PATH=\$HOME/.local/bin:\$PATH${C_RESET} to use the command"
 fi
-echo -e "\033[1;32m============================================================\033[0m"
+echo ""
