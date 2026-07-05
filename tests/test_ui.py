@@ -13,7 +13,7 @@ async def test_sidebar_navigation():
     async with app.run_test() as pilot:
         option_list = app.query_one("OptionList")
         assert option_list is not None
-        assert app.current_view == "status" # Default
+        assert app.current_view == "start" # Default
         await pilot.press("down")
         await pilot.press("enter")
-        # Ensure reactive state changed based on selection
+        assert app.current_view == "stop"

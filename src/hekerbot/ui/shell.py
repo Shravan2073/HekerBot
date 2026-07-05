@@ -6,7 +6,7 @@ class HekerApp(App):
     CSS_PATH = "shell.tcss"
     BINDINGS = [("escape", "quit", "Quit")]
     
-    current_view = reactive("status")
+    current_view = reactive("start")
 
     def compose(self) -> ComposeResult:
         yield Header()
