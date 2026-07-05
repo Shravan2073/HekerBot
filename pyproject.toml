@@ -7,7 +7,6 @@ authors = [
 ]
 dependencies = [
     "textual>=0.40.0",
-    "pytest-asyncio",
     "docker>=7.0.0",
     "pydantic>=2.0.0",
     "litellm>=1.40.0",
@@ -17,7 +16,9 @@ requires-python = ">=3.10"
 
 [project.scripts]
 hekerbot = "hekerbot.main:main"
-hkb = "hekerbot.main:main"
+
+[project.optional-dependencies]
+dev = ["pytest-asyncio", "pytest"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

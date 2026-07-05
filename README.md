@@ -8,13 +8,15 @@ HekerBOT is an autonomous agent designed to perform controlled penetration testi
 - **Autonomous Agentic Loop**: Iterative Plan -> Act -> Observe -> Reflect cycle.
 - **Interactive Shell**: A responsive TUI built with `rich` and `prompt_toolkit`.
 - **Background Execution**: Missions run in the background, keeping the UI interactive.
-- **Secure Sandboxing**: All tools run inside isolated Docker containers.
+- **Kali Linux Sandbox**: Now uses `kalilinux/kali-rolling` as a base for a professional-grade toolset.
+- **Expanded Toolset**: Over 20+ integrated tools for Recon, Web Enum, Exploitation, and Post-Exploitation.
+- **Secure Sandboxing**: All tools run inside isolated Docker containers with `NET_RAW` capabilities.
 - **Persistence**: Automatically saves session state and command history.
 
 ## 📋 Prerequisites
 - **Docker**: Required for tool execution. [Install Docker](https://docs.docker.com/get-docker/).
 - **Python 3.10+**: The core framework is written in Python.
-- **OpenAI or Anthropic API Key**: Required for the agent's "brain".
+- **LLM API Key**: Google Gemini (recommended), OpenAI, or Anthropic.
 
 ## 🛠️ Setup
 
@@ -24,21 +26,24 @@ HekerBOT is an autonomous agent designed to perform controlled penetration testi
    cd HekerBOT
    pip install -e .
    ```
+   This installs both `hekerbot` and the short command `hkb`.
 
 2. **Configure Environment**:
    Create a `.env` file in the root directory:
    ```bash
-   OPENAI_API_KEY=sk-...
+   GEMINI_API_KEY=your_key_here
+   # Or OPENAI_API_KEY / ANTHROPIC_API_KEY
+   
    # Optional: set preferred model
-   HEKER_MODEL=gpt-4-turbo-preview
+   HEKER_MODEL=gemini/gemini-1.5-flash
    ```
 
 3. **Build the Sandbox**:
    HekerBOT needs a specialized Docker image to run its tools.
    ```bash
-   hekerbot
+   hkb
    # Inside the shell, run:
-   hekerbot > build
+   hekerbot (idle) > build
    ```
    *Alternatively, run `docker build -t hekerbot-sandbox .` from the root.*
 
@@ -46,8 +51,9 @@ HekerBOT is an autonomous agent designed to perform controlled penetration testi
 
 Launch the interactive shell:
 ```bash
-hekerbot
+hkb
 ```
+(`hekerbot` also works.)
 
 ### Commands:
 - `build`: Build/Update the Docker sandbox image.
@@ -58,6 +64,25 @@ hekerbot
 - `clear`: Clear the terminal screen.
 - `help`: Show all available commands.
 - `exit`: Quit HekerBOT.
+
+## 🐳 Docker Management
+
+### Stopping a Mission
+Inside the HekerBOT shell, simply run:
+```bash
+hekerbot > stop
+```
+This will stop the agent's reasoning loop. Note that the currently executing tool will finish its task before the agent fully stops.
+
+### Emergency Cleanup
+If HekerBOT exits unexpectedly and leaves containers running, you can clean them up using standard Docker commands:
+```bash
+# Stop all containers using the hekerbot-sandbox image
+docker stop $(docker ps -q --filter ancestor=hekerbot-sandbox)
+
+# Remove all stopped containers using that image
+docker rm $(docker ps -aq --filter ancestor=hekerbot-sandbox)
+```
 
 ## 🛡️ Ethical Use & Disclaimer
 HekerBOT is for **educational and authorized security testing only**. Never use this tool against targets you do not have explicit, written permission to test. The authors are not responsible for any misuse or damage caused by this tool.

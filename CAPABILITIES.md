@@ -20,11 +20,16 @@ Unlike traditional scanners that report isolated bugs, HekerBOT is designed for 
 ## 3. Sandboxed Execution (Docker)
 Safety and isolation are fundamental to HekerBOT:
 *   **Ephemeral Containers**: Every tool execution happens inside a fresh Docker container.
-*   **Toolbox**: The sandbox environment is pre-loaded with:
-    *   **Network Mapping**: `nmap`, `ping`, `dnsutils`.
-    *   **Web Analysis**: `nikto`, `ffuf`, `curl`.
-    *   **Database Exploitation**: `sqlmap`.
-    *   **General Purpose**: `netcat`, `python3`, `git`.
+*   **Kali Linux Base**: The sandbox is built on `kalilinux/kali-rolling`, providing a massive repository of pre-installed security tools.
+*   **Comprehensive Toolset**:
+    *   **Recon & Discovery**: `amass`, `subfinder`, `httpx-toolkit`, `dnsx`, `whois`, `dig`.
+    *   **Port Scanning**: `nmap`, `masscan`, `rustscan`.
+    *   **Web Enumeration**: `ffuf`, `katana`, `nuclei`, `chromium` (headless).
+    *   **Vulnerability Scanning**: `wpscan`, `nikto`, `trivy`.
+    *   **Exploitation**: `metasploit-framework` (`msfconsole`), `searchsploit`, `sqlmap`, `xsstrike`, `jwt-tool`.
+    *   **Auth Testing**: `hydra`, `hashcat`, `john`, `kerbrute`.
+    *   **Post-Exploitation**: `netexec` (successor to `crackmapexec`), `impacket` toolkit, `bloodhound.py`, `evil-winrm`.
+    *   **Pivoting & Evasion**: `chisel`.
 *   **Zero Host Impact**: Hallucinated or destructive commands (like `rm -rf /`) are confined to the container and cannot damage the host machine.
 
 ## 4. Advanced TUI (Terminal User Interface)
