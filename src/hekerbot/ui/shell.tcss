@@ -14,3 +14,12 @@ Screen {
     height: 100%;
     padding: 1 2;
 }
+
+OptionList {
+    background: $surface;
+    border: none;
+}
+OptionList:focus > .option-list--option-highlighted {
+    background: $accent;
+    color: $text;
+}
