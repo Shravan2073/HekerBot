@@ -5,7 +5,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.screen import Screen
 from textual.containers import Vertical, Horizontal
-from textual.widgets import Static, OptionList, Input, Button, Label, RichLog, Footer, LoadingIndicator
+from textual.widgets import Static, OptionList, Input, Button, Label, RichLog, Footer, LoadingIndicator, TextArea
 from textual.reactive import reactive
 from textual import events
 from rich.text import Text
@@ -78,6 +78,22 @@ class BigBanner(Static):
             result.append(row_text)
             result.append("\n")
         return result
+
+
+class HelpPanel(Static):
+    """Lightweight keyboard help overlay."""
+
+    def __init__(self):
+        super().__init__(
+            "[bold #d4d4d8]HELP[/]\n"
+            "[dim]Navigation:[/] ↑/↓/←/→\n"
+            "[dim]Start mission:[/] Enter on target input\n"
+            "[dim]Send operator chat:[/] Enter on operator input\n"
+            "[dim]Toggle help:[/] ?\n"
+            "[dim]Back:[/] ESC\n"
+            "[dim]Quit:[/] CTRL+Q",
+            id="help-panel",
+        )
 
 class SettingsScreen(Screen):
     """Settings screen for configuring API keys and models."""
@@ -193,6 +209,22 @@ class SessionsModal(Screen):
     def on_mount(self) -> None:
         self.refresh_sessions()
 
+    def on_screen_resume(self) -> None:
+        self.refresh_sessions()
+        self.query_one("#export-container").add_class("hidden")
+        self.query_one("#session-detail").add_class("hidden")
+        self.query_one("#modal-status", Static).update("[dim]No session selected.[/]")
+
+    def action_pop_screen(self) -> None:
+        export_container = self.query_one("#export-container")
+        if not export_container.has_class("hidden"):
+            export_container.add_class("hidden")
+            self.query_one("#export-path", Input).value = ""
+            self.query_one("#session-list").focus()
+            self.query_one("#modal-status", Static).update("[dim]Export cancelled.[/]")
+        else:
+            self.app.pop_screen()
+
     def refresh_sessions(self) -> None:
         session_list = self.query_one("#session-list", OptionList)
         session_list.clear_options()
@@ -235,6 +267,8 @@ class SessionsModal(Screen):
         lines = []
         lines.append(f"[bold #d4d4d8]Session:[/] {sid}")
         lines.append(f"[bold #d4d4d8]Target:[/]  {state.target}")
+        if state.goal:
+            lines.append(f"[bold #d4d4d8]Goal:[/]    {state.goal}")
         lines.append(f"[bold #d4d4d8]Started:[/] {state.start_time.strftime('%Y-%m-%d %H:%M')}")
         lines.append(f"[bold #d4d4d8]Commands:[/] {len(state.command_results)}")
         if state.command_results:
@@ -280,6 +314,14 @@ class SessionsModal(Screen):
 
         status.update(f"[bold #d4d4d8]RESUMING SESSION[/]\n\nSession: {sid}\nTarget: [bold white]{state.target}[/]")
         dashboard.query_one("#target-input", Input).value = state.target
+        try:
+            dashboard.query_one("#instructions-input", TextArea).text = state.goal or ""
+        except Exception:
+            pass
+        try:
+            dashboard.query_one("#goal-input", Input).value = state.goal or ""
+        except Exception:
+            pass
         dashboard.query_one("#mission-loader").remove_class("hidden")
         dashboard.run_agent_resume(sid)
 
@@ -329,6 +371,8 @@ class SessionsModal(Screen):
                 with open(path, "w") as f:
                     f.write(f"--- EXPORTED SESSION: {sid} ---\n")
                     f.write(f"Target: {data.get('target', 'Unknown')}\n\n")
+                    if data.get("goal"):
+                        f.write(f"Goal: {data.get('goal')}\n\n")
                     f.write("COMMAND HISTORY:\n")
                     for res in data.get('command_results', []):
                         f.write(f"\n> {res.get('command', '')}\n")
@@ -470,6 +514,17 @@ class DashboardScreen(Screen):
         "▸ Docker Mode": "docker"
     }
 
+    @staticmethod
+    def _parse_target_and_goal(raw_target: str, ui_goal: str) -> tuple[str, str]:
+        target = (raw_target or "").strip()
+        goal = (ui_goal or "").strip()
+        if goal:
+            return target, goal
+        if "||" in target:
+            left, right = target.split("||", 1)
+            return left.strip(), right.strip()
+        return target, goal
+
     def compose(self) -> ComposeResult:
         # Top header bar spanning full width
         with Horizontal(id="dash-topbar"):
@@ -495,6 +550,10 @@ class DashboardScreen(Screen):
             with Vertical(id="content-container"):
                 yield Static("[dim]TARGET[/]", id="target-label")
                 yield Input(placeholder="Enter IP or domain...", id="target-input")
+                yield Static("[dim]INITIAL INSTRUCTIONS[/]", id="instructions-label")
+                yield TextArea(id="instructions-input")
+                yield Static("[dim]OPERATOR CHAT[/]", id="operator-label")
+                yield Input(placeholder="Send live instructions during mission and press Enter...", id="operator-input")
                 yield Static("", id="status-display")
                 yield LoadingIndicator(id="mission-loader", classes="hidden")
                 with Horizontal(id="headers-container"):
@@ -537,6 +596,12 @@ class DashboardScreen(Screen):
             self.execute_action(action)
 
     def on_key(self, event: events.Key) -> None:
+        if event.key in {"question_mark", "?"} or event.character == "?":
+            self.app.action_help()
+            event.prevent_default()
+            event.stop()
+            return
+
         if event.key == "right" and self.query_one("#menu-options").has_focus:
             self.query_one("#target-input").focus()
             event.prevent_default()
@@ -545,10 +610,16 @@ class DashboardScreen(Screen):
                 self.query_one("#menu-options").focus()
                 event.prevent_default()
         elif event.key == "down" and self.query_one("#target-input").has_focus:
+            self.query_one("#instructions-input").focus()
+            event.prevent_default()
+        elif event.key == "down" and self.query_one("#operator-input").has_focus:
             self.query_one("#mission-log").focus()
             event.prevent_default()
         elif event.key == "up" and self.query_one("#mission-log").has_focus:
-            self.query_one("#target-input").focus()
+            self.query_one("#operator-input").focus()
+            event.prevent_default()
+        elif event.key == "up" and self.query_one("#operator-input").has_focus:
+            self.query_one("#instructions-input").focus()
             event.prevent_default()
         elif event.key == "left" and self.query_one("#mission-log").has_focus:
             self.query_one("#menu-options").focus()
@@ -557,15 +628,20 @@ class DashboardScreen(Screen):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "target-input":
             self.execute_action("start")
+        elif event.input.id == "goal-input":
+            self.query_one("#operator-input", Input).focus()
+        elif event.input.id == "operator-input":
+            self.execute_action("chat")
             
     @work(thread=True)
-    def run_agent_mission(self, target: str) -> None:
+    def run_agent_mission(self, target: str, goal: str = "") -> None:
         log_widget = self.query_one("#mission-log", RichLog)
         
         class LogRedirector:
             def write(self, text):
                 if text:
-                    self.app.call_from_thread(log_widget.write, text.strip("\n"))
+                    t = Text.from_ansi(text.strip("\n"))
+                    self.app.call_from_thread(log_widget.write, t)
             def flush(self):
                 pass
             def __init__(self, app):
@@ -575,7 +651,7 @@ class DashboardScreen(Screen):
         console.file = LogRedirector(self.app)
         
         try:
-            self.app.agent.run_session(target)
+            self.app.agent.run_session(target, goal=goal)
         except Exception as e:
             self.app.call_from_thread(log_widget.write, f"[ERROR] Agent crashed: {str(e)}")
         finally:
@@ -597,7 +673,8 @@ class DashboardScreen(Screen):
         class LogRedirector:
             def write(self, text):
                 if text:
-                    self.app.call_from_thread(log_widget.write, text.strip("\n"))
+                    t = Text.from_ansi(text.strip("\n"))
+                    self.app.call_from_thread(log_widget.write, t)
             def flush(self):
                 pass
             def __init__(self, app):
@@ -632,7 +709,16 @@ class DashboardScreen(Screen):
         agent = self.app.agent
         
         if action == "start":
-            target = self.query_one("#target-input", Input).value.strip()
+            target_raw = self.query_one("#target-input", Input).value.strip()
+            goal_input = ""
+            try:
+                goal_input = self.query_one("#instructions-input", TextArea).text.strip()
+            except Exception:
+                try:
+                    goal_input = self.query_one("#goal-input", Input).value.strip()
+                except Exception:
+                    goal_input = ""
+            target, goal = self._parse_target_and_goal(target_raw, goal_input)
             if not target:
                 status.update("[bold #ef4444]ERROR: NO TARGET ACQUIRED[/]\n\nPlease enter a target IP or domain in the input field above.")
                 return
@@ -641,21 +727,50 @@ class DashboardScreen(Screen):
                 status.update(f"[bold #ef4444]ERROR: AGENT ALREADY RUNNING[/]\n\nTarget: {agent.current_state.target if agent.current_state else 'unknown'}")
                 return
                 
-            status.update(f"[bold #e4e4e7]SYSTEM OVERRIDE INITIATED[/]\n\nTarget acquired: [bold white]{target}[/]\nBackground payload delivery in progress...\nAgent is now RUNNING.")
+            goal_line = f"\nGoal: [bold white]{goal}[/]" if goal else ""
+            format_hint = "" if goal else "\n[dim]Tip: You can also use TARGET as: host || your goal[/]"
+            status.update(
+                f"[bold #e4e4e7]SYSTEM OVERRIDE INITIATED[/]\n\n"
+                f"Target acquired: [bold white]{target}[/]{goal_line}\n"
+                "Background payload delivery in progress...\nAgent is now RUNNING."
+                f"{format_hint}"
+            )
             
             log.clear()
             log.write("==================================================")
             log.write(" MISSION LOG INITIALIZED")
             log.write(f" Target: {target}")
+            if goal:
+                log.write(f" Goal: {goal}")
             log.write("==================================================\n")
             
             self.query_one("#mission-loader").remove_class("hidden")
-            self.run_agent_mission(target)
+            self.run_agent_mission(target, goal=goal)
             
         elif action == "stop":
             agent.stop()
             status.update("[bold #ef4444]MISSION ABORTED[/]\n\nTerminate signal dispatched.")
             log.write("\n[!] ABORT SIGNAL SENT: Terminating all active threads...\n")
+        elif action == "chat":
+            try:
+                message_input = self.query_one("#operator-input", Input)
+            except Exception:
+                status.update("[bold #ef4444]Operator chat box not visible in this UI build.[/]")
+                return
+            msg = message_input.value.strip()
+            if not msg:
+                status.update("[bold #ef4444]Empty operator message.[/]")
+                return
+            accepted = agent.add_operator_input(msg)
+            if accepted:
+                log.write(f"[OPERATOR] {msg}")
+                if agent.running:
+                    status.update("[bold #22c55e]Operator input queued for next decision step.[/]")
+                else:
+                    status.update("[bold #eab308]Saved operator note. Start/resume mission to apply it.[/]")
+                message_input.value = ""
+            else:
+                status.update("[bold #ef4444]No active session context. Start or resume a mission first.[/]")
         elif action == "docker":
             self.app.push_screen("docker_modal")
         elif action == "status":
@@ -694,7 +809,7 @@ class HekerApp(App):
     BINDINGS = [
         ("ctrl+q", "quit", "Quit"),
         ("escape", "safe_pop_screen", "Back"),
-        ("?", "help", "Help")
+        ("question_mark", "help", "Help")
     ]
     SCREENS = {
         "dashboard": DashboardScreen, 
@@ -722,6 +837,20 @@ class HekerApp(App):
         # Prevent popping the ArcadeScreen (which leaves only the blank _default screen)
         if len(self.screen_stack) > 2:
             self.pop_screen()
+
+    def action_help(self) -> None:
+        help_panels = self.screen.query("HelpPanel")
+        if help_panels:
+            for panel in help_panels:
+                panel.remove()
+            return
+        self.screen.mount(HelpPanel())
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key in {"question_mark", "?"} or event.character == "?":
+            self.action_help()
+            event.prevent_default()
+            event.stop()
 
 if __name__ == "__main__":
     app = HekerApp()

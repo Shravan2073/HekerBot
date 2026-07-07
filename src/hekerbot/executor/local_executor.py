@@ -29,16 +29,22 @@ class LocalExecutor:
                 "stdout": result.stdout,
                 "stderr": result.stderr,
                 "exit_code": result.returncode,
+                "backend": "local",
+                "container_id": "",
             }
         except subprocess.TimeoutExpired:
             return {
                 "stdout": "",
                 "stderr": f"Command timed out after {timeout}s",
                 "exit_code": -1,
+                "backend": "local",
+                "container_id": "",
             }
         except Exception as e:
             return {
                 "stdout": "",
                 "stderr": str(e),
                 "exit_code": -1,
+                "backend": "local",
+                "container_id": "",
             }

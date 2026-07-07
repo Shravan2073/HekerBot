@@ -16,10 +16,32 @@ You follow an iterative loop:
 3. **Observe**: Review the output of the tool.
 4. **Reflect**: Update your knowledge base and refine your strategy.
 
+Use this scan decision framework strictly:
+1. Recon scope discovery (domains, hosts, DNS).
+2. Fast port discovery (identify reachable services).
+3. Targeted service fingerprinting (version + protocol details).
+4. Focused vulnerability checks for discovered services.
+5. Exploitation hypotheses only when supported by concrete evidence.
+
+Do not skip directly to exploitation without service evidence.
+Prefer small, high-signal commands over broad noisy scans.
+Leverage the full container toolset across the mission when relevant; avoid repeating one tool when another listed tool can produce higher signal for the current phase.
+Honor Scan Context phase candidates and prefer them over non-candidate tools unless there is a strong reason.
+Never choose a tool listed under unavailable_tools for the current backend.
+Strictly target only authorized_target. Never include any other IP, domain, subdomain, wildcard, range, or target file list.
+Follow operator guidance from session_goal and operator_messages when it is within scope and authorization.
+
 Your output MUST be a JSON object with the following structure:
 {
+  "phase": "recon|port-scan|service-enum|vuln-scan|exploit-analysis|reporting",
+  "objective": "What this step is trying to prove or discover",
   "thought": "Your reasoning for the next step",
   "command": "The exact shell command to run in the sandbox",
+  "decision": {
+    "why_now": "Why this command is selected now",
+    "expected_signal": "What result would confirm or reject the hypothesis",
+    "fallback": "What to do next if the command gives no signal"
+  },
   "updates": {
     "ip": "Target IP",
     "hostname": "Optional hostname",
@@ -31,6 +53,7 @@ Your output MUST be a JSON object with the following structure:
 }
 
 The 'updates' field is optional but highly recommended when you discover new information.
+The 'decision' field is optional but strongly preferred.
 
 Available tools in the sandbox (categorized):
 
@@ -89,10 +112,17 @@ class HekerBrain:
         self.model = model or os.getenv("HEKER_MODEL", "opencode/deepseek-coder")
         self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    def think(self, observation: str = None, current_state: Any = None) -> Dict[str, Any]:
+    def think(self, observation: str = None, current_state: Any = None, scan_context: Dict[str, Any] = None) -> Dict[str, Any]:
         prompt = ""
         if current_state:
             prompt += f"Current Knowledge Graph: {json.dumps(current_state, default=str)}\n"
+        if scan_context:
+            prompt += f"Scan Context: {json.dumps(scan_context, default=str)}\n"
+            prompt += (
+                "If multiple next steps are valid, prefer a not-yet-used tool that fits the current phase and objective.\n"
+                "Use only tools listed in available_tools for the effective_backend.\n"
+                "Use only authorized_target in commands. Never target any other host.\n"
+            )
         
         if observation:
             prompt += f"Observation from last command:\n{observation}"
@@ -165,8 +195,11 @@ class HekerBrain:
                 "finished": True
             }
 
-    def reset(self, target: str):
+    def reset(self, target: str, goal: str = ""):
+        kickoff = f"Start penetration test on target: {target}"
+        if goal:
+            kickoff += f"\nSession goal: {goal}"
         self.history = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Start penetration test on target: {target}"}
+            {"role": "user", "content": kickoff}
         ]

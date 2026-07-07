@@ -21,6 +21,7 @@ class Asset(BaseModel):
 class SessionState(BaseModel):
     session_id: str
     target: str
+    goal: Optional[str] = None
     start_time: datetime = Field(default_factory=datetime.now)
     history: List[Dict[str, Any]] = Field(default_factory=list) # Agent thoughts and commands
     command_results: List[CommandResult] = Field(default_factory=list)

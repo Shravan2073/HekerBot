@@ -91,7 +91,14 @@ class DockerExecutor:
                 exit_code = result.get("StatusCode", 1)
             except Exception as e:
                 container.kill()
-                return {"stdout": "", "stderr": f"Command timed out after {timeout}s", "exit_code": -1}
+                return {
+                    "stdout": "",
+                    "stderr": f"Command timed out after {timeout}s",
+                    "exit_code": -1,
+                    "backend": "docker",
+                    "container_id": container.short_id,
+                    "image_name": self.image_name,
+                }
             finally:
                 self.current_container = None
 
@@ -105,13 +112,19 @@ class DockerExecutor:
             return {
                 "stdout": stdout,
                 "stderr": stderr,
-                "exit_code": exit_code
+                "exit_code": exit_code,
+                "backend": "docker",
+                "container_id": container.short_id,
+                "image_name": self.image_name,
             }
         except Exception as e:
             return {
                 "stdout": "",
                 "stderr": str(e),
-                "exit_code": -1
+                "exit_code": -1,
+                "backend": "docker",
+                "container_id": "",
+                "image_name": self.image_name,
             }
 
 if __name__ == "__main__":
