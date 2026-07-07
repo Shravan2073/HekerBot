@@ -164,23 +164,29 @@ class SettingsScreen(Screen):
 class SessionsModal(Screen):
     """Modal screen for managing sessions."""
     BINDINGS = [
+        ("r", "resume_session", "Resume"),
+        ("v", "view_session", "View"),
         ("d", "delete_session", "Delete"),
         ("e", "export_session", "Export"),
-        ("c", "pop_screen", "Close"),
         ("escape", "pop_screen", "Back")
     ]
 
     def compose(self) -> ComposeResult:
         with Vertical(id="sessions-modal"):
-            yield Static("[bold #e4e4e7]SESSION MANAGER[/]", id="modal-title")
+            yield Static("[bold #d4d4d8]SESSIONS[/]", id="modal-title")
             yield OptionList(id="session-list")
-            yield Static("Select a session.", id="modal-status")
-            
+            yield Static("[dim]No session selected.[/]", id="modal-status")
+
+            # Session details panel (hidden by default)
+            with Vertical(id="session-detail", classes="hidden"):
+                yield Static("", id="session-info")
+
+            # Export path input (hidden by default)
             with Vertical(id="export-container", classes="hidden"):
-                yield Input(placeholder="Path to save log (Press Enter to confirm)...", id="export-path")
-                
+                yield Input(placeholder="Export path (press Enter)...", id="export-path")
+
             yield Static(
-                "\n[dim]Shortcuts: [bold white]D[/] delete · [bold white]E[/] export · [bold white]ESC[/] close[/dim]",
+                "\n[dim][bold white]R[/] resume · [bold white]V[/] view · [bold white]D[/] delete · [bold white]E[/] export · [bold white]ESC[/] back[/dim]",
                 id="modal-guidance"
             )
 
@@ -192,76 +198,161 @@ class SessionsModal(Screen):
         session_list.clear_options()
         sessions = self.app.agent.persistence.list_sessions()
         for s in sessions:
-            session_list.add_option(s)
+            # Try to load target info for a richer display
+            state = self.app.agent.persistence.load_session(s)
+            if state:
+                label = f"{s}  [dim]→ {state.target}  ({len(state.command_results)} cmds)[/]"
+            else:
+                label = s
+            session_list.add_option(label)
+
+    def _get_selected_id(self):
+        """Extract the raw session ID from the selected option."""
+        session_list = self.query_one("#session-list", OptionList)
+        if session_list.highlighted is None:
+            return None
+        prompt = str(session_list.get_option_at_index(session_list.highlighted).prompt)
+        # The ID is the first 8 chars before the dim tag
+        return prompt.split(" ")[0].strip()
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if event.option_list.id == "session-list":
-            self.query_one("#modal-status", Static).update(f"Selected: [bold white]{event.option.prompt}[/]")
+            sid = self._get_selected_id()
+            if sid:
+                self.query_one("#modal-status", Static).update(f"Selected: [bold white]{sid}[/]")
+
+    def action_view_session(self) -> None:
+        sid = self._get_selected_id()
+        if not sid:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]No session selected.[/]")
+            return
+        state = self.app.agent.persistence.load_session(sid)
+        if not state:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]Session not found.[/]")
+            return
+
+        # Build a summary view
+        lines = []
+        lines.append(f"[bold #d4d4d8]Session:[/] {sid}")
+        lines.append(f"[bold #d4d4d8]Target:[/]  {state.target}")
+        lines.append(f"[bold #d4d4d8]Started:[/] {state.start_time.strftime('%Y-%m-%d %H:%M')}")
+        lines.append(f"[bold #d4d4d8]Commands:[/] {len(state.command_results)}")
+        if state.command_results:
+            lines.append("")
+            lines.append("[dim]Last 5 commands:[/]")
+            for cmd in state.command_results[-5:]:
+                lines.append(f"  [#71717a]$[/] {cmd.command}")
+
+        self.query_one("#session-info", Static).update("\n".join(lines))
+        self.query_one("#session-detail").remove_class("hidden")
+        self.query_one("#modal-status", Static).update(f"Viewing session [bold white]{sid}[/]")
+
+    def action_resume_session(self) -> None:
+        sid = self._get_selected_id()
+        if not sid:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]No session selected.[/]")
+            return
+
+        agent = self.app.agent
+        if agent.running:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]Agent is already running. Stop it first.[/]")
+            return
+
+        state = self.app.agent.persistence.load_session(sid)
+        if not state:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]Session not found.[/]")
+            return
+
+        # Pop back to dashboard and start the resumed session
+        self.app.pop_screen()
+
+        # Get the dashboard and kick off the resume
+        dashboard = self.app.screen
+        log = dashboard.query_one("#mission-log", RichLog)
+        status = dashboard.query_one("#status-display", Static)
+
+        log.clear()
+        log.write("==================================================")
+        log.write(f" RESUMING SESSION: {sid}")
+        log.write(f" Target: {state.target}")
+        log.write(f" Previous commands: {len(state.command_results)}")
+        log.write("==================================================\n")
+
+        status.update(f"[bold #d4d4d8]RESUMING SESSION[/]\n\nSession: {sid}\nTarget: [bold white]{state.target}[/]")
+        dashboard.query_one("#target-input", Input).value = state.target
+        dashboard.query_one("#mission-loader").remove_class("hidden")
+        dashboard.run_agent_resume(sid)
 
     def action_delete_session(self) -> None:
-        session_list = self.query_one("#session-list", OptionList)
-        if session_list.highlighted is not None:
-            session_id = str(session_list.get_option_at_index(session_list.highlighted).prompt)
-            storage_dir = self.app.agent.persistence.storage_dir
-            session_file = os.path.join(storage_dir, f"{session_id}.json")
-            if os.path.exists(session_file):
-                os.remove(session_file)
-                self.query_one("#modal-status", Static).update(f"[bold #22c55e]DELETED[/] Session {session_id}")
-            else:
-                self.query_one("#modal-status", Static).update(f"[bold #ef4444]Session not found[/]")
-            self.refresh_sessions()
+        sid = self._get_selected_id()
+        if not sid:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]No session selected.[/]")
+            return
+        storage_dir = self.app.agent.persistence.storage_dir
+        session_file = os.path.join(storage_dir, f"{sid}.json")
+        if os.path.exists(session_file):
+            os.remove(session_file)
+            self.query_one("#modal-status", Static).update(f"[#d4d4d8]Deleted[/] session {sid}")
+            self.query_one("#session-detail").add_class("hidden")
+        else:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]Session not found.[/]")
+        self.refresh_sessions()
 
     def action_export_session(self) -> None:
+        sid = self._get_selected_id()
+        if not sid:
+            self.query_one("#modal-status", Static).update("[bold #ef4444]No session selected.[/]")
+            return
         self.query_one("#export-container").remove_class("hidden")
         self.query_one("#export-path").focus()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "export-path":
-            session_list = self.query_one("#session-list", OptionList)
-            if session_list.highlighted is not None:
-                session_id = str(session_list.get_option_at_index(session_list.highlighted).prompt)
-                path = event.value.strip()
-                if not path:
-                    self.query_one("#modal-status", Static).update("[bold #ef4444]Enter a valid path.[/]")
-                    return
-                
-                storage_dir = self.app.agent.persistence.storage_dir
-                session_file = os.path.join(storage_dir, f"{session_id}.json")
-                if not os.path.exists(session_file):
-                    self.query_one("#modal-status", Static).update("[bold #ef4444]Session state not found.[/]")
-                    return
+            sid = self._get_selected_id()
+            if not sid:
+                return
+            path = event.value.strip()
+            if not path:
+                self.query_one("#modal-status", Static).update("[bold #ef4444]Enter a valid path.[/]")
+                return
+
+            storage_dir = self.app.agent.persistence.storage_dir
+            session_file = os.path.join(storage_dir, f"{sid}.json")
+            if not os.path.exists(session_file):
+                self.query_one("#modal-status", Static).update("[bold #ef4444]Session not found.[/]")
+                return
+            try:
+                import json
+                with open(session_file, "r") as f:
+                    data = json.load(f)
+
+                with open(path, "w") as f:
+                    f.write(f"--- EXPORTED SESSION: {sid} ---\n")
+                    f.write(f"Target: {data.get('target', 'Unknown')}\n\n")
+                    f.write("COMMAND HISTORY:\n")
+                    for res in data.get('command_results', []):
+                        f.write(f"\n> {res.get('command', '')}\n")
+                        f.write(f"{res.get('stdout', '')}\n")
+                        if res.get('stderr'):
+                            f.write(f"[ERR] {res.get('stderr')}\n")
+
+                self.query_one("#modal-status", Static).update(f"[#d4d4d8]Exported[/] to {path}")
+                self.query_one("#export-container").add_class("hidden")
+
+                import subprocess
+                import platform
                 try:
-                    import json
-                    with open(session_file, "r") as f:
-                        data = json.load(f)
-                    
-                    with open(path, "w") as f:
-                        f.write(f"--- EXPORTED SESSION: {session_id} ---\n")
-                        f.write(f"Target: {data.get('target', 'Unknown')}\n\n")
-                        f.write("COMMAND HISTORY:\n")
-                        for res in data.get('command_results', []):
-                            f.write(f"\n> {res.get('command', '')}\n")
-                            f.write(f"{res.get('stdout', '')}\n")
-                            if res.get('stderr'):
-                                f.write(f"[ERR] {res.get('stderr')}\n")
-                    
-                    self.query_one("#modal-status", Static).update(f"[bold #22c55e]EXPORTED[/] to {path}")
-                    self.query_one("#export-container").add_class("hidden")
-                    
-                    import subprocess
-                    import platform
-                    try:
-                        if platform.system() == "Darwin":
-                            subprocess.Popen(["open", path])
-                        elif platform.system() == "Windows":
-                            os.startfile(path)
-                        else:
-                            subprocess.Popen(["xdg-open", path])
-                    except Exception:
-                        pass
-                        
-                except Exception as e:
-                    self.query_one("#modal-status", Static).update(f"[bold #ef4444]Export failed:[/] {str(e)}")
+                    if platform.system() == "Darwin":
+                        subprocess.Popen(["open", path])
+                    elif platform.system() == "Windows":
+                        os.startfile(path)
+                    else:
+                        subprocess.Popen(["xdg-open", path])
+                except Exception:
+                    pass
+
+            except Exception as e:
+                self.query_one("#modal-status", Static).update(f"[bold #ef4444]Export failed:[/] {str(e)}")
 
 class DockerScreen(Screen):
     """Screen for managing Docker settings and viewing daemon logs."""
@@ -455,6 +546,38 @@ class DashboardScreen(Screen):
             self.app.agent.running = False
             self.app.call_from_thread(log_widget.write, "\n[SYSTEM] Agent IDLE.")
             
+            def hide_loader():
+                try:
+                    self.query_one("#mission-loader").add_class("hidden")
+                except Exception:
+                    pass
+            self.app.call_from_thread(hide_loader)
+
+    @work(thread=True)
+    def run_agent_resume(self, session_id: str) -> None:
+        log_widget = self.query_one("#mission-log", RichLog)
+
+        class LogRedirector:
+            def write(self, text):
+                if text:
+                    self.app.call_from_thread(log_widget.write, text.strip("\n"))
+            def flush(self):
+                pass
+            def __init__(self, app):
+                self.app = app
+
+        old_file = console.file
+        console.file = LogRedirector(self.app)
+
+        try:
+            self.app.agent.resume_session(session_id)
+        except Exception as e:
+            self.app.call_from_thread(log_widget.write, f"[ERROR] Agent crashed: {str(e)}")
+        finally:
+            console.file = old_file
+            self.app.agent.running = False
+            self.app.call_from_thread(log_widget.write, "\n[SYSTEM] Agent IDLE.")
+
             def hide_loader():
                 try:
                     self.query_one("#mission-loader").add_class("hidden")

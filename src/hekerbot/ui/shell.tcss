@@ -385,15 +385,16 @@ SettingsScreen Input:focus {
 
 SessionsModal {
     align: center middle;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.8);
 }
 
 #sessions-modal {
-    width: 60;
+    width: 70;
     height: auto;
+    max-height: 35;
     padding: 2;
-    background: #18181b;
-    border: round #27272a;
+    background: #09090b;
+    border: solid #1a1a1e;
 }
 
 #modal-title {
@@ -403,14 +404,24 @@ SessionsModal {
 
 #session-list {
     height: 10;
-    border: round #27272a;
-    background: #09090b;
+    border: solid #1a1a1e;
+    background: #000000;
     color: #a1a1aa;
 }
 
 #modal-status {
     text-align: center;
     margin-top: 1;
+    color: #71717a;
+}
+
+#session-detail {
+    width: 100%;
+    height: auto;
+    margin-top: 1;
+    padding: 1 2;
+    background: #000000;
+    border: solid #1a1a1e;
     color: #a1a1aa;
 }
 
