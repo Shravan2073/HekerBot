@@ -383,19 +383,56 @@ class DockerScreen(Screen):
         log = self.query_one("#docker-log", RichLog)
         is_enabled = self.app.agent.docker_mode_enabled
         if is_enabled:
-            log.write("[SYSTEM] Docker backend is ENABLED.")
+            log.write("[bold #d4d4d8]DOCKER BACKEND STATUS[/]")
             log.write("[SYSTEM] Checking daemon connection...")
             executor = self.app.agent.executor
             if executor.is_available():
-                log.write("[OK] Docker socket connected.")
-                log.write(f"[OK] Using image: {executor.image_name}")
-                log.write("[OK] Subsystems ONLINE and isolated.")
+                log.write("[bold #22c55e]CONNECTED[/] Daemon is reachable.\n")
+                
+                try:
+                    # Fetch detailed Docker info
+                    client = executor.client
+                    info = client.info()
+                    version = client.version()
+                    
+                    log.write(f"  [#71717a]Server Version:[/] {version.get('Version', 'Unknown')}")
+                    log.write(f"  [#71717a]OS/Arch:[/] {info.get('OperatingSystem', 'Unknown')} ({info.get('Architecture', 'Unknown')})")
+                    log.write(f"  [#71717a]CPUs:[/] {info.get('NCPU', 'Unknown')}  |  [#71717a]Memory:[/] {round(info.get('MemTotal', 0) / (1024**3), 2)} GB\n")
+
+                    log.write("[bold #d4d4d8]SANDBOX IMAGE[/]")
+                    try:
+                        image = client.images.get(executor.image_name)
+                        size_mb = round(image.attrs['Size'] / (1024 * 1024), 1)
+                        created = image.attrs.get('Created', 'Unknown')[:10]
+                        log.write(f"  [#71717a]Tag:[/] {executor.image_name}:latest")
+                        log.write(f"  [#71717a]Size:[/] {size_mb} MB  |  [#71717a]Created:[/] {created}")
+                        log.write("  [bold #22c55e]READY[/] Image is available.\n")
+                    except Exception:
+                        log.write(f"  [#71717a]Tag:[/] {executor.image_name}")
+                        log.write("  [bold #eab308]NOT FOUND[/] Image is missing. Run a mission to auto-build it.\n")
+
+                    log.write("[bold #d4d4d8]ACTIVE CONTAINERS[/]")
+                    containers = client.containers.list(filters={"ancestor": executor.image_name})
+                    if containers:
+                        log.write(f"  [#71717a]Running sandbox containers:[/] {len(containers)}")
+                        for c in containers:
+                            log.write(f"    - {c.short_id} ({c.status})")
+                    else:
+                        log.write("  [#71717a]Running sandbox containers:[/] 0")
+                        
+                    log.write("\n[bold #22c55e]Subsystems ONLINE and isolated.[/]")
+                    
+                except Exception as e:
+                    log.write(f"[ERROR] Failed to fetch advanced info: {str(e)}")
             else:
+                log.write("[bold #ef4444]DISCONNECTED[/]")
                 log.write("[ERROR] Could not connect to Docker daemon!")
                 log.write("[!] Check if Docker is running and your user has permissions.")
         else:
-            log.write("[SYSTEM] Docker backend is DISABLED.")
-            log.write("[WARNING] Agent will run directly on the local host!")
+            log.write("[bold #d4d4d8]DOCKER BACKEND STATUS[/]")
+            log.write("[bold #a1a1aa]OFFLINE[/]")
+            log.write("\n[SYSTEM] Docker isolation is DISABLED.")
+            log.write("[WARNING] Commands will be executed directly on the local host!")
 
     def refresh_status(self) -> None:
         is_enabled = self.app.agent.docker_mode_enabled
