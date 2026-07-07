@@ -94,26 +94,64 @@ ArcadeScreen {
 
 /* Refined Dashboard Screen */
 DashboardScreen {
-    layout: horizontal;
-    background: #09090b;
+    layout: vertical;
+    background: #000000;
 }
 
+/* Top Header Bar */
+#dash-topbar {
+    width: 100%;
+    height: 3;
+    dock: top;
+    background: #09090b;
+    border-bottom: solid #1a1a1e;
+    padding: 1 2;
+}
+
+#dash-brand {
+    width: auto;
+    content-align: left middle;
+    color: #d4d4d8;
+}
+
+#dash-status-line {
+    width: 1fr;
+    content-align: right middle;
+    color: #52525b;
+}
+
+/* Dashboard Body */
+#dash-body {
+    width: 100%;
+    height: 1fr;
+}
+
+/* Sidebar */
 #sidebar {
-    width: 30;
+    width: 28;
     height: 100%;
-    border-right: vkey #27272a;
+    border-right: solid #1a1a1e;
     background: #09090b;
     padding: 1 0;
 }
 
 #sidebar-header {
-    text-align: center;
-    padding: 1;
-    border-bottom: hkey #27272a;
-    color: #e4e4e7;
+    text-align: left;
+    padding: 0 2 1 2;
+    color: #52525b;
     background: transparent;
     text-style: bold;
-    margin-bottom: 1;
+}
+
+#sidebar-spacer {
+    height: 1fr;
+}
+
+#sidebar-hints {
+    dock: bottom;
+    padding: 0 2;
+    color: #3f3f46;
+    height: 1;
 }
 
 #menu-options {
@@ -122,45 +160,94 @@ DashboardScreen {
 }
 #menu-options > .option-list--option {
     padding: 0 2;
-    color: #a1a1aa;
+    color: #71717a;
 }
 #menu-options:focus > .option-list--option-highlighted {
-    background: #27272a;
-    color: #ffffff;
+    background: #18181b;
+    color: #d4d4d8;
     text-style: bold;
-    border-left: outer #e4e4e7;
+    border-left: outer #d4d4d8;
 }
 
+/* Content Area */
 #content-container {
     width: 1fr;
     height: 100%;
-    background: #09090b;
-    padding: 1 2;
+    background: #000000;
+    padding: 1 3;
+}
+
+#target-label {
+    height: 1;
+    color: #52525b;
+    text-style: bold;
+    margin-bottom: 0;
+    padding: 0 1;
 }
 
 #target-input {
     dock: top;
     width: 100%;
     height: 3;
-    border: round #27272a;
-    background: #18181b;
-    color: #e4e4e7;
+    border: solid #1a1a1e;
+    background: #09090b;
+    color: #d4d4d8;
     margin-bottom: 1;
 }
 #target-input:focus {
-    border: round #52525b;
+    border: solid #3f3f46;
 }
 
 #status-display {
     width: 100%;
     height: auto;
-    min-height: 7;
-    max-height: 15;
+    min-height: 3;
+    max-height: 8;
     padding: 1 2;
-    border: round #27272a;
-    background: #18181b;
-    color: #e4e4e7;
+    background: transparent;
+    color: #a1a1aa;
     margin-bottom: 1;
+}
+
+#headers-container {
+    width: 100%;
+    height: auto;
+    layout: horizontal;
+    background: transparent;
+    padding: 0 1;
+}
+
+#log-header {
+    width: 1fr;
+    text-align: left;
+    color: #d4d4d8;
+    padding: 0 0 1 0;
+}
+
+#docker-header {
+    width: auto;
+    text-align: right;
+    color: #52525b;
+    padding: 0 0 1 0;
+}
+
+#mission-log {
+    width: 100%;
+    height: 1fr;
+    background: #09090b;
+    color: #a1a1aa;
+    border: solid #1a1a1e;
+    padding: 1 2;
+    scrollbar-color: #3f3f46;
+    scrollbar-background: #09090b;
+}
+
+/* Mission Loader */
+#mission-loader {
+    width: 100%;
+    height: 1;
+    color: #d4d4d8;
+    background: transparent;
 }
 
 /* Command Palette overrides */
@@ -188,50 +275,6 @@ CommandPalette CommandList {
     padding: 1 0 !important;
 }
 
-/* Docker Screen */
-DockerScreen {
-    color: #e4e4e7;
-}
-
-#docker-sidebar {
-    width: 30;
-    height: 100%;
-    dock: left;
-    background: #09090b;
-    padding: 1 2;
-    border-right: solid #27272a;
-}
-
-#docker-sidebar-header {
-    text-align: center;
-    margin-bottom: 1;
-    color: #e4e4e7;
-}
-
-#docker-content {
-    width: 1fr;
-    height: 100%;
-    padding: 1 4;
-}
-
-#docker-log-title {
-    margin-bottom: 1;
-    color: #e4e4e7;
-}
-
-#docker-status {
-    margin-bottom: 1;
-}
-
-#docker-log {
-    width: 100%;
-    height: 1fr;
-    border: solid #27272a;
-    background: #09090b;
-    color: #e4e4e7;
-    padding: 1;
-}
-
 CommandPalette CommandList > .option-list--option {
     color: #a1a1aa !important;
     padding: 0 1 !important;
@@ -245,43 +288,48 @@ CommandPalette CommandList > .option-list--option-highlighted {
     border-left: none !important;
 }
 
-#mission-loader {
-    width: 100%;
-    height: 1;
+/* Docker Screen */
+DockerScreen {
     color: #e4e4e7;
-    background: transparent;
 }
 
-#headers-container {
-    width: 100%;
-    height: auto;
-    layout: horizontal;
-    background: transparent;
+#docker-sidebar {
+    width: 28;
+    height: 100%;
+    dock: left;
+    background: #09090b;
+    padding: 1 2;
+    border-right: solid #1a1a1e;
 }
 
-#log-header {
+#docker-sidebar-header {
+    text-align: center;
+    margin-bottom: 1;
+    color: #d4d4d8;
+}
+
+#docker-content {
     width: 1fr;
-    text-align: left;
-    color: #22c55e;
-    padding: 1 1;
+    height: 100%;
+    padding: 1 4;
 }
 
-#docker-header {
-    width: auto;
-    text-align: right;
-    color: #a1a1aa;
-    padding: 1 1;
+#docker-log-title {
+    margin-bottom: 1;
+    color: #d4d4d8;
 }
 
-#mission-log {
+#docker-status {
+    margin-bottom: 1;
+}
+
+#docker-log {
     width: 100%;
     height: 1fr;
-    background: #000000;
-    color: #d4d4d8;
-    border: round #3f3f46;
-    padding: 1 2;
-    scrollbar-color: #52525b;
-    scrollbar-background: #000000;
+    border: solid #1a1a1e;
+    background: #09090b;
+    color: #a1a1aa;
+    padding: 1;
 }
 
 /* Settings Screen */

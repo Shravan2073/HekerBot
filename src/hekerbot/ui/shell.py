@@ -335,47 +335,70 @@ class DockerScreen(Screen):
 class DashboardScreen(Screen):
     """The main working dashboard."""
     VIEW_MAP = {
-        "Start Mission": "start",
-        "Stop Mission": "stop",
-        "Agent Status": "status",
-        "Sessions": "sessions",
-        "Docker Mode": "docker"
+        "▸ Start Mission": "start",
+        "▸ Stop Mission": "stop",
+        "▸ Agent Status": "status",
+        "▸ Sessions": "sessions",
+        "▸ Docker Mode": "docker"
     }
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
+        # Top header bar spanning full width
+        with Horizontal(id="dash-topbar"):
+            yield Static("[bold #d4d4d8]HEKERBOT[/]", id="dash-brand")
+            yield Static("", id="dash-status-line")
+
+        with Horizontal(id="dash-body"):
+            # Sidebar
             with Vertical(id="sidebar"):
-                yield Static("[bold #e4e4e7]COMMANDS[/]", id="sidebar-header")
+                yield Static("[dim]OPERATIONS[/]", id="sidebar-header")
                 yield OptionList(
-                    "Start Mission",
-                    "Stop Mission",
-                    "Agent Status",
-                    "Sessions",
-                    "Docker Mode",
+                    "▸ Start Mission",
+                    "▸ Stop Mission",
+                    "▸ Agent Status",
+                    "▸ Sessions",
+                    "▸ Docker Mode",
                     id="menu-options"
                 )
+                yield Static("", id="sidebar-spacer")
+                yield Static("[dim]ESC[/dim] back  [dim]?[/dim] help", id="sidebar-hints")
+
+            # Main content
             with Vertical(id="content-container"):
-                yield Input(placeholder="TARGET IP/DOMAIN (e.g., 10.10.10.1)", id="target-input")
-                yield Static("AWAITING TARGET...", id="status-display")
+                yield Static("[dim]TARGET[/]", id="target-label")
+                yield Input(placeholder="Enter IP or domain...", id="target-input")
+                yield Static("", id="status-display")
                 yield LoadingIndicator(id="mission-loader", classes="hidden")
                 with Horizontal(id="headers-container"):
-                    yield Static("● [bold #e4e4e7]TERMINAL[/] [dim]· live output[/]", id="log-header")
-                    yield Static("○ [bold #a1a1aa]DOCKER[/] [dim]· disabled[/]", id="docker-header")
-                # wrap=True makes sure long strings break lines instead of horizontal scrolling
+                    yield Static("● [bold #d4d4d8]TERMINAL[/] [dim]· live[/]", id="log-header")
+                    yield Static("○ [bold #52525b]DOCKER[/] [dim]· offline[/]", id="docker-header")
                 yield RichLog(id="mission-log", wrap=True)
 
     def on_mount(self) -> None:
-        self.execute_action("status")
+        self.update_status_line()
         self.update_docker_header()
         self.set_interval(0.5, self.update_docker_header)
+        self.set_interval(1.0, self.update_status_line)
+
+    def update_status_line(self) -> None:
+        try:
+            agent = self.app.agent
+            state = "[#d4d4d8]● RUNNING[/]" if agent.running else "[#52525b]○ IDLE[/]"
+            docker = "[#d4d4d8]● DOCKER[/]" if agent.docker_mode_enabled else "[#52525b]○ LOCAL[/]"
+            version = get_app_version()
+            self.query_one("#dash-status-line", Static).update(
+                f"{state}  {docker}  [dim]{version}[/]"
+            )
+        except Exception:
+            pass
 
     def update_docker_header(self) -> None:
         try:
             is_enabled = self.app.agent.docker_mode_enabled
             if is_enabled:
-                header = "● [bold white]DOCKER[/] [dim]· ready[/]"
+                header = "● [bold #d4d4d8]DOCKER[/] [dim]· ready[/]"
             else:
-                header = "○ [bold #a1a1aa]DOCKER[/] [dim]· offline[/]"
+                header = "○ [bold #52525b]DOCKER[/] [dim]· offline[/]"
             self.query_one("#docker-header", Static).update(header)
         except Exception:
             pass
