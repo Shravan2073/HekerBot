@@ -23,7 +23,10 @@ def main():
         load_dotenv()
 
     from hekerbot.meow import auto_update
-    if auto_update():
+    update_result = auto_update()
+    if update_result:
+        old_hash, new_hash = update_result
+        os.environ["HEKERBOT_UPDATED"] = f"{old_hash} -> {new_hash}"
         import sys
         print("[*] Restarting application to apply updates...")
         os.execvp(sys.executable, [sys.executable] + sys.argv)

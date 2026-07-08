@@ -177,6 +177,28 @@ DashboardScreen {
     padding: 1 3;
 }
 
+#input-panels {
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.box-panel {
+    width: 1fr;
+    height: auto;
+    border: round #1a1a1e;
+    padding: 1 2;
+    background: #000000;
+}
+
+#setup-panel {
+    margin-right: 1;
+}
+
+#operator-panel {
+    margin-left: 1;
+}
+
 #target-label {
     height: 1;
     color: #52525b;
@@ -186,7 +208,6 @@ DashboardScreen {
 }
 
 #target-input {
-    dock: top;
     width: 100%;
     height: 3;
     border: solid #1a1a1e;
@@ -207,7 +228,6 @@ DashboardScreen {
 }
 
 #instructions-input {
-    dock: top;
     width: 100%;
     height: 8;
     border: solid #1a1a1e;
@@ -217,7 +237,6 @@ DashboardScreen {
 }
 
 #goal-input, #operator-input {
-    dock: top;
     width: 100%;
     height: 3;
     border: solid #1a1a1e;

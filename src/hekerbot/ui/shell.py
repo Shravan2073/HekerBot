@@ -548,13 +548,16 @@ class DashboardScreen(Screen):
 
             # Main content
             with Vertical(id="content-container"):
-                yield Static("[dim]TARGET[/]", id="target-label")
-                yield Input(placeholder="Enter IP or domain...", id="target-input")
-                yield Static("[dim]INITIAL INSTRUCTIONS[/]", id="instructions-label")
-                yield TextArea(id="instructions-input")
-                yield Static("[dim]OPERATOR CHAT[/]", id="operator-label")
-                yield Input(placeholder="Send live instructions during mission and press Enter...", id="operator-input")
-                yield Static("", id="status-display")
+                with Horizontal(id="input-panels"):
+                    with Vertical(id="setup-panel", classes="box-panel"):
+                        yield Static("[dim]TARGET[/]", id="target-label")
+                        yield Input(placeholder="Enter IP or domain...", id="target-input")
+                        yield Static("[dim]INITIAL INSTRUCTIONS[/]", id="instructions-label")
+                        yield TextArea(id="instructions-input")
+                    with Vertical(id="operator-panel", classes="box-panel"):
+                        yield Static("[dim]OPERATOR CHAT (LIVE)[/]", id="operator-label")
+                        yield Input(placeholder="Send live instructions during mission and press Enter...", id="operator-input")
+                        yield Static("", id="status-display")
                 yield LoadingIndicator(id="mission-loader", classes="hidden")
                 with Horizontal(id="headers-container"):
                     yield Static("● [bold #d4d4d8]TERMINAL[/] [dim]· live[/]", id="log-header")
@@ -825,6 +828,19 @@ class HekerApp(App):
 
     def on_mount(self) -> None:
         self.push_screen("arcade")
+        
+        # Check if we just auto-updated
+        import os
+        update_info = os.environ.get("HEKERBOT_UPDATED")
+        if update_info:
+            self.notify(
+                f"Successfully updated HekerBOT!\nVersions: {update_info}",
+                title="Update Complete",
+                severity="information",
+                timeout=6.0
+            )
+            # Remove it so it doesn't persist in child processes unnecessarily
+            del os.environ["HEKERBOT_UPDATED"]
 
     def action_safe_pop_screen(self) -> None:
         # Check if HelpPanel (the keys column) is open and close it first

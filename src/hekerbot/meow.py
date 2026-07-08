@@ -33,7 +33,7 @@ def auto_update():
         return False
 
     if local_hash == remote_hash:
-        return False
+        return None
         
     print(f"[!] New update found! {local_hash[:7]} -> {remote_hash[:7]}")
     print("[*] Pulling latest changes...")
@@ -41,7 +41,7 @@ def auto_update():
     stdout, stderr, rc = run_cmd("git pull", cwd=repo_root)
     if rc != 0:
         print(f"[-] Failed to pull updates: {stderr}")
-        return False
+        return None
     
     print("[*] Reinstalling to ensure dependencies are up to date...")
     
@@ -54,7 +54,7 @@ def auto_update():
     result = subprocess.run(cmd, shell=True, cwd=repo_root)
     if result.returncode != 0:
         print(f"[-] Failed to install dependencies!")
-        return False
+        return None
         
     print("[+] HekerBOT has been updated successfully!")
-    return True
+    return (local_hash[:7], remote_hash[:7])
