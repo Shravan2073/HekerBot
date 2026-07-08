@@ -22,6 +22,12 @@ def main():
     else:
         load_dotenv()
 
+    from hekerbot.meow import auto_update
+    if auto_update():
+        import sys
+        print("[*] Restarting application to apply updates...")
+        os.execvp(sys.executable, [sys.executable] + sys.argv)
+
     from hekerbot.ui.shell import HekerApp
     shell = HekerApp()
     shell.run()
