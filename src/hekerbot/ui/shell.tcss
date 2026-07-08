@@ -227,7 +227,7 @@ DashboardScreen {
     padding: 0 1;
 }
 
-#instructions-input {
+#instructions-input, #operator-input {
     width: 100%;
     height: 8;
     border: solid #1a1a1e;
@@ -236,7 +236,7 @@ DashboardScreen {
     margin-bottom: 1;
 }
 
-#goal-input, #operator-input {
+#goal-input {
     width: 100%;
     height: 3;
     border: solid #1a1a1e;

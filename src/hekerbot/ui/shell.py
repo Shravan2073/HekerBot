@@ -556,7 +556,7 @@ class DashboardScreen(Screen):
                         yield TextArea(id="instructions-input")
                     with Vertical(id="operator-panel", classes="box-panel"):
                         yield Static("[dim]OPERATOR CHAT (LIVE)[/]", id="operator-label")
-                        yield Input(placeholder="Send live instructions during mission and press Enter...", id="operator-input")
+                        yield TextArea(text="", id="operator-input")
                         yield Static("", id="status-display")
                 yield LoadingIndicator(id="mission-loader", classes="hidden")
                 with Horizontal(id="headers-container"):
@@ -599,6 +599,12 @@ class DashboardScreen(Screen):
             self.execute_action(action)
 
     def on_key(self, event: events.Key) -> None:
+        if event.key == "enter" and self.query_one("#operator-input").has_focus:
+            self.execute_action("chat")
+            event.prevent_default()
+            event.stop()
+            return
+
         if event.key in {"question_mark", "?"} or event.character == "?":
             self.app.action_help()
             event.prevent_default()
@@ -756,11 +762,11 @@ class DashboardScreen(Screen):
             log.write("\n[!] ABORT SIGNAL SENT: Terminating all active threads...\n")
         elif action == "chat":
             try:
-                message_input = self.query_one("#operator-input", Input)
+                message_input = self.query_one("#operator-input", TextArea)
             except Exception:
                 status.update("[bold #ef4444]Operator chat box not visible in this UI build.[/]")
                 return
-            msg = message_input.value.strip()
+            msg = message_input.text.strip()
             if not msg:
                 status.update("[bold #ef4444]Empty operator message.[/]")
                 return
@@ -771,7 +777,7 @@ class DashboardScreen(Screen):
                     status.update("[bold #22c55e]Operator input queued for next decision step.[/]")
                 else:
                     status.update("[bold #eab308]Saved operator note. Start/resume mission to apply it.[/]")
-                message_input.value = ""
+                message_input.text = ""
             else:
                 status.update("[bold #ef4444]No active session context. Start or resume a mission first.[/]")
         elif action == "docker":
