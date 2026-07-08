@@ -548,16 +548,12 @@ class DashboardScreen(Screen):
 
             # Main content
             with Vertical(id="content-container"):
-                with Horizontal(id="input-panels"):
-                    with Vertical(id="setup-panel", classes="box-panel"):
-                        yield Static("[dim]TARGET[/]", id="target-label")
-                        yield Input(placeholder="Enter IP or domain...", id="target-input")
-                        yield Static("[dim]INITIAL INSTRUCTIONS[/]", id="instructions-label")
-                        yield TextArea(id="instructions-input")
-                    with Vertical(id="operator-panel", classes="box-panel"):
-                        yield Static("[dim]OPERATOR CHAT (LIVE)[/]", id="operator-label")
-                        yield TextArea(text="", id="operator-input")
-                        yield Static("", id="status-display")
+                with Vertical(id="setup-panel", classes="box-panel"):
+                    yield Static("[dim]TARGET[/]", id="target-label")
+                    yield Input(placeholder="Enter IP or domain...", id="target-input")
+                    yield Static("[dim]INSTRUCTIONS (Initial & Live)[/]", id="instructions-label")
+                    yield TextArea(id="instructions-input")
+                    yield Static("", id="status-display")
                 yield LoadingIndicator(id="mission-loader", classes="hidden")
                 with Horizontal(id="headers-container"):
                     yield Static("● [bold #d4d4d8]TERMINAL[/] [dim]· live[/]", id="log-header")
@@ -599,11 +595,12 @@ class DashboardScreen(Screen):
             self.execute_action(action)
 
     def on_key(self, event: events.Key) -> None:
-        if event.key == "enter" and self.query_one("#operator-input").has_focus:
-            self.execute_action("chat")
-            event.prevent_default()
-            event.stop()
-            return
+        if event.key == "enter" and self.query_one("#instructions-input").has_focus:
+            if self.app.agent.running:
+                self.execute_action("chat")
+                event.prevent_default()
+                event.stop()
+                return
 
         if event.key in {"question_mark", "?"} or event.character == "?":
             self.app.action_help()
@@ -621,13 +618,10 @@ class DashboardScreen(Screen):
         elif event.key == "down" and self.query_one("#target-input").has_focus:
             self.query_one("#instructions-input").focus()
             event.prevent_default()
-        elif event.key == "down" and self.query_one("#operator-input").has_focus:
+        elif event.key == "down" and self.query_one("#instructions-input").has_focus:
             self.query_one("#mission-log").focus()
             event.prevent_default()
         elif event.key == "up" and self.query_one("#mission-log").has_focus:
-            self.query_one("#operator-input").focus()
-            event.prevent_default()
-        elif event.key == "up" and self.query_one("#operator-input").has_focus:
             self.query_one("#instructions-input").focus()
             event.prevent_default()
         elif event.key == "left" and self.query_one("#mission-log").has_focus:
@@ -762,9 +756,9 @@ class DashboardScreen(Screen):
             log.write("\n[!] ABORT SIGNAL SENT: Terminating all active threads...\n")
         elif action == "chat":
             try:
-                message_input = self.query_one("#operator-input", TextArea)
+                message_input = self.query_one("#instructions-input", TextArea)
             except Exception:
-                status.update("[bold #ef4444]Operator chat box not visible in this UI build.[/]")
+                status.update("[bold #ef4444]Instructions box not visible in this UI build.[/]")
                 return
             msg = message_input.text.strip()
             if not msg:
