@@ -312,7 +312,7 @@ class SessionsModal(Screen):
         log.write(f" Previous commands: {len(state.command_results)}")
         log.write("==================================================\n")
 
-        status.update(f"[bold #d4d4d8]RESUMING SESSION[/]\n\nSession: {sid}\nTarget: [bold white]{state.target}[/]")
+        self.app.notify(f"[bold #d4d4d8]RESUMING SESSION[/]\n\nSession: {sid}\nTarget: [bold white]{state.target}[/]", title="Resumed")
         dashboard.query_one("#target-input", Input).value = state.target
         try:
             dashboard.query_one("#instructions-input", TextArea).text = state.goal or ""
@@ -553,7 +553,6 @@ class DashboardScreen(Screen):
                     yield Input(placeholder="Enter IP or domain...", id="target-input")
                     yield Static("[dim]INSTRUCTIONS (Initial & Live)[/]", id="instructions-label")
                     yield TextArea(id="instructions-input")
-                    yield Static("", id="status-display")
                 yield LoadingIndicator(id="mission-loader", classes="hidden")
                 with Horizontal(id="headers-container"):
                     yield Static("● [bold #d4d4d8]TERMINAL[/] [dim]· live[/]", id="log-header")
@@ -704,7 +703,7 @@ class DashboardScreen(Screen):
             
     def execute_action(self, action: str) -> None:
         try:
-            status = self.query_one("#status-display", Static)
+            pass # No status display anymore
             log = self.query_one("#mission-log", RichLog)
         except Exception:
             return
@@ -723,21 +722,21 @@ class DashboardScreen(Screen):
                     goal_input = ""
             target, goal = self._parse_target_and_goal(target_raw, goal_input)
             if not target:
-                status.update("[bold #ef4444]ERROR: NO TARGET ACQUIRED[/]\n\nPlease enter a target IP or domain in the input field above.")
+                self.notify("[bold #ef4444]ERROR: NO TARGET ACQUIRED[/]\n\nPlease enter a target IP or domain in the input field above.", title="Error", severity="error")
                 return
             
             if agent.running:
-                status.update(f"[bold #ef4444]ERROR: AGENT ALREADY RUNNING[/]\n\nTarget: {agent.current_state.target if agent.current_state else 'unknown'}")
+                self.notify(f"[bold #ef4444]ERROR: AGENT ALREADY RUNNING[/]\n\nTarget: {agent.current_state.target if agent.current_state else 'unknown'}", title="Error", severity="error")
                 return
                 
             goal_line = f"\nGoal: [bold white]{goal}[/]" if goal else ""
             format_hint = "" if goal else "\n[dim]Tip: You can also use TARGET as: host || your goal[/]"
-            status.update(
+            self.notify(
                 f"[bold #e4e4e7]SYSTEM OVERRIDE INITIATED[/]\n\n"
                 f"Target acquired: [bold white]{target}[/]{goal_line}\n"
                 "Background payload delivery in progress...\nAgent is now RUNNING."
                 f"{format_hint}"
-            )
+            , title="Status", severity="information")
             
             log.clear()
             log.write("==================================================")
@@ -752,33 +751,33 @@ class DashboardScreen(Screen):
             
         elif action == "stop":
             agent.stop()
-            status.update("[bold #ef4444]MISSION ABORTED[/]\n\nTerminate signal dispatched.")
+            self.notify("[bold #ef4444]MISSION ABORTED[/]\n\nTerminate signal dispatched.", title="Status", severity="information")
             log.write("\n[!] ABORT SIGNAL SENT: Terminating all active threads...\n")
         elif action == "chat":
             try:
                 message_input = self.query_one("#instructions-input", TextArea)
             except Exception:
-                status.update("[bold #ef4444]Instructions box not visible in this UI build.[/]")
+                self.notify("[bold #ef4444]Instructions box not visible in this UI build.[/]", title="Warning", severity="warning")
                 return
             msg = message_input.text.strip()
             if not msg:
-                status.update("[bold #ef4444]Empty operator message.[/]")
+                self.notify("[bold #ef4444]Empty operator message.[/]", title="Warning", severity="warning")
                 return
             accepted = agent.add_operator_input(msg)
             if accepted:
                 log.write(f"[OPERATOR] {msg}")
                 if agent.running:
-                    status.update("[bold #22c55e]Operator input queued for next decision step.[/]")
+                    self.notify("[bold #22c55e]Operator input queued for next decision step.[/]", title="Status", severity="information")
                 else:
-                    status.update("[bold #eab308]Saved operator note. Start/resume mission to apply it.[/]")
+                    self.notify("[bold #eab308]Saved operator note. Start/resume mission to apply it.[/]", title="Status", severity="information")
                 message_input.text = ""
             else:
-                status.update("[bold #ef4444]No active session context. Start or resume a mission first.[/]")
+                self.notify("[bold #ef4444]No active session context. Start or resume a mission first.[/]", title="Warning", severity="warning")
         elif action == "docker":
             self.app.push_screen("docker_modal")
         elif action == "status":
             st = "[bold #22c55e]RUNNING[/]" if agent.running else "[bold #a1a1aa]IDLE[/]"
-            status.update(f"[bold white]AGENT STATUS[/]\n\nState: {st}\nNetwork: SECURE")
+            self.notify(f"[bold white]AGENT STATUS[/]\n\nState: {st}\nNetwork: SECURE", title="Status", severity="information")
         elif action == "sessions":
             self.app.push_screen("sessions_modal")
 
