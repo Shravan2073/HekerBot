@@ -29,16 +29,28 @@ def auto_update():
     local_hash, _, rc_local = run_cmd("git rev-parse HEAD", cwd=repo_root)
     remote_hash, _, rc_remote = run_cmd("git rev-parse @{u}", cwd=repo_root)
 
-    if rc_local != 0 or rc_remote != 0:
+    behind_str, _, rc_behind = run_cmd("git rev-list HEAD..@{u} --count", cwd=repo_root)
+    
+    if rc_local != 0 or rc_remote != 0 or rc_behind != 0:
         return False
 
-    if local_hash == remote_hash:
+    if behind_str == "0":
+        print("[+] HekerBOT is up to date.")
         return None
         
-    print(f"[!] New update found! {local_hash[:7]} -> {remote_hash[:7]}")
-    print("[*] Pulling latest changes...")
+    print(f"[*] Updating from current hash {local_hash[:7]} to new hash {remote_hash[:7]}...")
+    
+    status_out, _, _ = run_cmd("git status --porcelain", cwd=repo_root)
+    has_changes = len(status_out) > 0
+    
+    if has_changes:
+        run_cmd("git stash", cwd=repo_root)
     
     stdout, stderr, rc = run_cmd("git pull", cwd=repo_root)
+    
+    if has_changes:
+        run_cmd("git stash pop", cwd=repo_root)
+        
     if rc != 0:
         print(f"[-] Failed to pull updates: {stderr}")
         return None
