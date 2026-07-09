@@ -8,3 +8,13 @@ build/
 sessions/
 .hekerbot_history
 scratch/
+
+# AI and Agent Artifacts
+.agents/
+.superpowers/
+docs/superpowers/
+context.md
+refactor_status.py
+out.txt
+fonts.txt
+test_*.py
