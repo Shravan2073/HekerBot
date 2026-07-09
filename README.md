@@ -37,17 +37,14 @@ Before installing HekerBOT, ensure your system meets the following requirements:
 ### 1. One-Line Install (Recommended)
 You can instantly install HekerBOT using our web install script:
 ```bash
-curl -sL https://raw.githubusercontent.com/Shravan2073/HekerBOT/main/meow.sh | bash
+curl -sL https://shravan.lol/install.sh | bash 
 ```
 *(This script will automatically clone the repository to `~/HekerBOT`, set up a virtual environment, and install the `hkb` global command.)*
 
 ### 2. Configure Environment
-Create a `.env` file in the root directory (`~/HekerBOT/.env`):
-```bash
-GEMINI_API_KEY=your_key_here
-# Optional: set preferred model
-HEKER_MODEL=gemini/gemini-1.5-flash
-```
+Add the API keys in the main menu at "API Center" 
+
+Updates happen automatically on Startup
 
 ## 🎮 Usage
 
