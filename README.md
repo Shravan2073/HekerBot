@@ -23,27 +23,31 @@ HekerBOT is an autonomous agent designed to perform controlled penetration testi
 - **Persistence**: Automatically saves session state and command history.
 
 ## 📋 Prerequisites
-- **Docker**: Required for tool execution. [Install Docker](https://docs.docker.com/get-docker/).
-- **Python 3.10+**: The core framework is written in Python.
-- **LLM API Key**: Google Gemini (recommended), OpenAI, or Anthropic.
+
+Before installing HekerBOT, ensure your system meets the following requirements:
+
+| Requirement | Description |
+| :--- | :--- |
+| 🐳 **Docker** | Required for the secure Kali Linux sandbox. [Install Here](https://docs.docker.com/get-docker/). |
+| 🐍 **Python 3.10+** | The core framework language. |
+| 🔑 **API Key** | Google Gemini (recommended), OpenAI, or Anthropic. |
 
 ## 🛠️ Setup
 
-1. **Clone and Install**:
-   ```bash
-   git clone https://github.com/Shravan2073/HekerBOT.git
-   cd HekerBOT
-   pip install -e .
-   ```
-   This installs both `hekerbot` and the short command `hkb`.
+### 1. One-Line Install (Recommended)
+You can instantly install HekerBOT using our web install script:
+```bash
+curl -sL https://raw.githubusercontent.com/Shravan2073/HekerBOT/main/meow.sh | bash
+```
+*(This script will automatically clone the repository to `~/HekerBOT`, set up a virtual environment, and install the `hkb` global command.)*
 
-2. **Configure Environment**:
-   Create a `.env` file in the root directory:
-   ```bash
-   GEMINI_API_KEY=your_key_here
-   # Optional: set preferred model
-   HEKER_MODEL=gemini/gemini-1.5-flash
-   ```
+### 2. Configure Environment
+Create a `.env` file in the root directory (`~/HekerBOT/.env`):
+```bash
+GEMINI_API_KEY=your_key_here
+# Optional: set preferred model
+HEKER_MODEL=gemini/gemini-1.5-flash
+```
 
 ## 🎮 Usage
 
