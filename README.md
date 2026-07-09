@@ -13,8 +13,10 @@ HekerBOT is an autonomous agent designed to perform controlled penetration testi
 
 ## 🚀 Key Features
 - **Autonomous Agentic Loop**: Iterative Plan -> Act -> Observe -> Reflect cycle.
-- **Interactive Shell**: A responsive TUI built with `rich` and `prompt_toolkit`.
-- **Background Execution**: Missions run in the background, keeping the UI interactive.
+- **Full-Screen Dashboard**: A beautiful, responsive TUI built with `textual` featuring side-by-side components.
+- **Live Operator Chat**: Send real-time instructions to the AI agent while a mission is running!
+- **Auto-Updater**: Automatically checks and seamlessly pulls the latest updates on launch.
+- **Background Execution**: Missions run in the background, updating a live terminal log.
 - **Kali Linux Sandbox**: Now uses `kalilinux/kali-rolling` as a base for a professional-grade toolset.
 - **Expanded Toolset**: Over 20+ integrated tools for Recon, Web Enum, Exploitation, and Post-Exploitation.
 - **Secure Sandboxing**: All tools run inside isolated Docker containers with `NET_RAW` capabilities.
@@ -29,7 +31,7 @@ HekerBOT is an autonomous agent designed to perform controlled penetration testi
 
 1. **Clone and Install**:
    ```bash
-   git clone https://github.com/yourusername/HekerBOT.git
+   git clone https://github.com/Shravan2073/HekerBOT.git
    cd HekerBOT
    pip install -e .
    ```
@@ -39,55 +41,35 @@ HekerBOT is an autonomous agent designed to perform controlled penetration testi
    Create a `.env` file in the root directory:
    ```bash
    GEMINI_API_KEY=your_key_here
-   # Or OPENAI_API_KEY / ANTHROPIC_API_KEY
-   
    # Optional: set preferred model
    HEKER_MODEL=gemini/gemini-1.5-flash
    ```
 
-3. **Build the Sandbox**:
-   HekerBOT needs a specialized Docker image to run its tools.
-   ```bash
-   hkb
-   # Inside the shell, run:
-   hekerbot (idle) > build
-   ```
-   *Alternatively, run `docker build -t hekerbot-sandbox .` from the root.*
-
 ## 🎮 Usage
 
-Launch the interactive shell:
+Launch the full-screen dashboard:
 ```bash
 hkb
 ```
-(`hekerbot` also works.)
 
-### Commands:
-- `build`: Build/Update the Docker sandbox image.
-- `start <target>`: Start a background pentest on a target (e.g., `start 192.168.1.1`).
-- `status`: Check if the agent is running and see mission details.
-- `stop`: Gracefully stop the current mission.
-- `sessions`: List previous session IDs.
-- `clear`: Clear the terminal screen.
-- `help`: Show all available commands.
-- `exit`: Quit HekerBOT.
+### The Dashboard Interface
+- **Sidebar Menu**: Navigate between starting/stopping missions, checking agent status, managing past sessions, and configuring Docker mode.
+- **Target & Instructions**: Simply enter a target (IP or domain) and your initial goal. The unified **INSTRUCTIONS** box is used for both initial goals and live chat.
+- **Operator Chat**: While a mission is actively running, you can type directly into the Instructions box and press `Enter` to inject live commands or feedback directly into the agent's thought process!
+- **Live Terminal**: Watch the agent execute commands in real-time in the scrollable log window.
+
+### 🔄 Auto-Update
+HekerBOT now automatically checks the remote GitHub repository for new features when you run `hkb`. If an update is found, it will seamlessly stash your changes, pull the latest code, and reinstall dependencies before launching the UI!
 
 ## 🐳 Docker Management
 
-### Stopping a Mission
-Inside the HekerBOT shell, simply run:
-```bash
-hekerbot > stop
-```
-This will stop the agent's reasoning loop. Note that the currently executing tool will finish its task before the agent fully stops.
+### Setting up the Sandbox
+HekerBOT needs a specialized Docker image to run its tools securely. You can manage this from the **Docker Mode** menu option inside the TUI, which will guide you through building the `hekerbot-sandbox` image.
 
 ### Emergency Cleanup
 If HekerBOT exits unexpectedly and leaves containers running, you can clean them up using standard Docker commands:
 ```bash
-# Stop all containers using the hekerbot-sandbox image
 docker stop $(docker ps -q --filter ancestor=hekerbot-sandbox)
-
-# Remove all stopped containers using that image
 docker rm $(docker ps -aq --filter ancestor=hekerbot-sandbox)
 ```
 
