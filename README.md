@@ -30,7 +30,7 @@ Before installing HekerBOT, ensure your system meets the following requirements:
 | :--- | :--- |
 | 🐳 **Docker** | Required for the secure Kali Linux sandbox. [Install Here](https://docs.docker.com/get-docker/). |
 | 🐍 **Python 3.10+** | The core framework language. |
-| 🔑 **API Key** | Google Gemini (recommended), OpenAI, or Anthropic. |
+| 🔑 **API Key** | Google Gemini (recommended), OpenAI, OpenCode, or Anthropic. |
 
 ## 🛠️ Setup
 
