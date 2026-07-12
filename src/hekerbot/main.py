@@ -22,7 +22,7 @@ def main():
     else:
         load_dotenv()
 
-    from hekerbot.meow import auto_update
+    from hekerbot.meow import auto_update, shine_line
     update_result = auto_update()
     if update_result:
         old_hash, new_hash = update_result
@@ -31,9 +31,20 @@ def main():
         print("[*] Restarting application to apply updates...")
         os.execvp(sys.executable, [sys.executable] + sys.argv)
 
+    shine_line("HEKERBOT")
+
     from hekerbot.ui.shell import HekerApp
-    shell = HekerApp()
-    shell.run()
+    try:
+        shell = HekerApp()
+        shell.run()
+    except Exception:
+        import logging
+        import sys
+        crash_log = os.path.join(config_dir, "crash.log")
+        logging.basicConfig(filename=crash_log, level=logging.ERROR)
+        logging.exception("HekerBOT failed to start")
+        print(f"[!] HekerBOT crashed on startup. Details logged to {crash_log}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

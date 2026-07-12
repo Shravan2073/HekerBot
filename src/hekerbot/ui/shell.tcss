@@ -1,7 +1,27 @@
-/* General Hacker Aesthetic */
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+$bg: #000000;
+$surface: #09090b;
+$surface-raised: #131316;
+$border: #1a1a1e;
+$border-strong: #27272a;
+$border-focus: #52525b;
+
+$text: #e4e4e7;
+$text-dim: #a1a1aa;
+$text-faint: #52525b;
+$text-ghost: #3f3f46;
+
+$accent: #22d3ee;
+$accent-dim: #0e7490;
+$success: #22c55e;
+$warning: #eab308;
+$danger: #ef4444;
+
 Screen {
-    background: #000000;
-    color: #00ff00;
+    background: $bg;
+    color: $text-dim;
 }
 
 *:focus {
@@ -12,17 +32,40 @@ OptionList:focus {
     border: none !important;
 }
 
+/* Smooth, subtle motion on interactive elements */
+Button {
+    transition: background 120ms in_out_cubic, color 120ms in_out_cubic, opacity 120ms in_out_cubic;
+}
+
+Input {
+    transition: background 150ms in_out_cubic;
+}
+
+TextArea {
+    transition: background 150ms in_out_cubic;
+}
+
+OptionList > .option-list--option-highlighted {
+    background: $surface-raised;
+    color: $text-dim;
+    transition: background 100ms in_out_cubic;
+}
+
+LoadingIndicator {
+    color: $accent;
+}
+
 /* Arcade Screen */
 ArcadeScreen {
     align: center middle;
-    background: #000000;
+    background: $bg;
 }
 
 #start-hints {
     dock: bottom;
     width: 100%;
     height: 1;
-    color: #52525b;
+    color: $text-faint;
     padding: 0 4;
     margin-bottom: 1;
     background: transparent;
@@ -49,53 +92,74 @@ ArcadeScreen {
     margin-bottom: 2;
 }
 
-#subtitle, #system-status {
+#tagline {
+    width: 100%;
     text-align: center;
-    color: #888888;
+    margin-bottom: 1;
 }
 
 #top-info {
     text-align: center;
-    color: #555555;
+    color: $text-ghost;
     margin-bottom: 2;
 }
 
 #top-info .highlight {
-    color: #ff0000;
+    color: $danger;
+}
+
+#menu-row {
+    width: 100%;
+    height: auto;
+    align: center middle;
+    margin-top: 2;
+    margin-bottom: 2;
+}
+
+#menu-card {
+    width: 36;
+    height: auto;
+    border: round $border-strong;
+    background: $surface;
+    padding: 1 2;
+}
+
+#arcade-pulse {
+    height: 1;
+    margin-top: 1;
+    text-align: center;
 }
 
 #menu {
-    width: 30;
+    width: 100%;
     height: auto;
     border: none;
     background: transparent;
-    margin-top: 2;
-    margin-bottom: 2;
-    margin-left: 35;
 }
 
 #menu > .option-list--option {
     padding: 0 1;
     text-align: left;
-    color: #888888;
+    color: $text-dim;
+}
+
+#menu > .option-list--option-highlighted {
+    background: transparent;
+    color: $text-dim;
 }
 
 #menu:focus > .option-list--option-highlighted {
-    background: #333333;
-    color: #cccccc;
+    background: $surface-raised;
+    color: $accent;
     text-style: bold;
-    border-left: outer #cccccc;
-}
-
-#footer-hints {
-    text-align: center;
-    color: #555555;
+    border-left: thick $accent;
+    padding: 0 1 0 0;
 }
 
 /* Refined Dashboard Screen */
 DashboardScreen {
     layout: vertical;
-    background: #000000;
+    background: $bg;
 }
 
 /* Top Header Bar */
@@ -103,21 +167,33 @@ DashboardScreen {
     width: 100%;
     height: 3;
     dock: top;
-    background: #09090b;
-    border-bottom: solid #1a1a1e;
+    background: $surface;
+    border-bottom: solid $border;
     padding: 1 2;
 }
 
 #dash-brand {
     width: auto;
+    height: 1;
     content-align: left middle;
-    color: #d4d4d8;
+    color: $text;
+}
+
+#dash-brand-icon {
+    width: auto;
+    content-align: left middle;
+}
+
+#dash-brand-text {
+    width: auto;
+    content-align: left middle;
+    text-style: bold;
 }
 
 #dash-status-line {
     width: 1fr;
     content-align: right middle;
-    color: #52525b;
+    color: $text-faint;
 }
 
 /* Dashboard Body */
@@ -130,15 +206,15 @@ DashboardScreen {
 #sidebar {
     width: 28;
     height: 100%;
-    border-right: solid #1a1a1e;
-    background: #09090b;
+    border-right: solid $border;
+    background: $surface;
     padding: 1 0;
 }
 
 #sidebar-header {
     text-align: left;
     padding: 0 2 1 2;
-    color: #52525b;
+    color: $text-faint;
     background: transparent;
     text-style: bold;
 }
@@ -148,10 +224,10 @@ DashboardScreen {
 }
 
 #sidebar-hints {
-    dock: bottom;
-    padding: 0 2;
-    color: #3f3f46;
-    height: 1;
+    padding: 1 2 0 2;
+    color: $text-ghost;
+    height: auto;
+    border-top: solid $border;
 }
 
 #menu-options {
@@ -160,35 +236,90 @@ DashboardScreen {
 }
 #menu-options > .option-list--option {
     padding: 0 2;
-    color: #71717a;
+    color: $text-faint;
+}
+#menu-options > .option-list--option-highlighted {
+    background: transparent;
+    color: $text-dim;
+    padding: 0 2;
 }
 #menu-options:focus > .option-list--option-highlighted {
-    background: #18181b;
-    color: #d4d4d8;
+    background: $surface-raised;
+    color: $accent;
     text-style: bold;
-    border-left: outer #d4d4d8;
+    border-left: thick $accent;
+    padding: 0 2 0 1;
 }
 
 /* Content Area */
 #content-container {
     width: 1fr;
     height: 100%;
-    background: #000000;
+    background: $bg;
     padding: 1 3;
 }
 
-.box-panel {
+/* Stat tile row: quick-glance AGENT / DOCKER / SESSIONS status cards */
+#stat-tiles {
+    width: 100%;
+    height: 4;
+    layout: grid;
+    grid-size: 3;
+    grid-gutter: 1 2;
+    margin-bottom: 1;
+}
+
+.stat-tile {
+    width: 100%;
+    height: 100%;
+    background: $surface;
+    border: round $border-strong;
+    border-title-color: $text-faint;
+    border-title-style: bold;
+    border-subtitle-color: $text-faint;
+    content-align: center middle;
+}
+
+.stat-tile-value {
+    width: 100%;
+    height: 1;
+    content-align: center middle;
+}
+
+/* Shared "window" panel styling for setup-panel and terminal-panel:
+   titles/status live in the border line itself, not a separate chrome bar. */
+.dash-panel {
     width: 100%;
     height: auto;
-    border: round #1a1a1e;
-    padding: 1 2;
-    background: #000000;
+    border: round $border-strong;
+    background: $surface;
+    border-title-color: $text-faint;
+    border-subtitle-color: $text-faint;
     margin-bottom: 1;
+}
+
+.panel-body {
+    width: 100%;
+    height: auto;
+    padding: 1 2;
+}
+
+/* Target (compact, left) and instructions (right) sit side by side so the
+   setup panel stays short and the terminal log below gets the room. */
+#target-column {
+    width: 30;
+    height: auto;
+    padding-right: 2;
+}
+
+#instructions-column {
+    width: 1fr;
+    height: auto;
 }
 
 #target-label {
     height: 1;
-    color: #52525b;
+    color: $text-faint;
     text-style: bold;
     margin-bottom: 0;
     padding: 0 1;
@@ -197,18 +328,18 @@ DashboardScreen {
 #target-input {
     width: 100%;
     height: 3;
-    border: solid #1a1a1e;
-    background: #09090b;
-    color: #d4d4d8;
-    margin-bottom: 1;
+    border: solid $border;
+    background: $surface;
+    color: $text;
 }
 #target-input:focus {
-    border: solid #3f3f46;
+    border: solid $accent-dim;
+    background: $surface-raised;
 }
 
-#instructions-label, #goal-label, #operator-label {
+#instructions-label {
     height: 1;
-    color: #52525b;
+    color: $text-faint;
     text-style: bold;
     margin-bottom: 0;
     padding: 0 1;
@@ -216,47 +347,21 @@ DashboardScreen {
 
 #instructions-input {
     width: 100%;
-    height: 5;
-    border: solid #1a1a1e;
-    background: #09090b;
-    color: #d4d4d8;
-    margin-bottom: 1;
-}
-
-#goal-input {
-    width: 100%;
     height: 3;
-    border: solid #1a1a1e;
-    background: #09090b;
-    color: #d4d4d8;
-    margin-bottom: 1;
+    border: solid $border;
+    background: $surface;
+    color: $text;
 }
 
-#instructions-input:focus, #goal-input:focus, #operator-input:focus {
-    border: solid #3f3f46;
+#instructions-input:focus {
+    border: solid $accent-dim;
+    background: $surface-raised;
 }
 
 
-#headers-container {
-    width: 100%;
-    height: auto;
-    layout: horizontal;
-    background: transparent;
-    padding: 0 1;
-}
-
-#log-header {
-    width: 1fr;
-    text-align: left;
-    color: #d4d4d8;
-    padding: 0 0 1 0;
-}
-
-#docker-header {
-    width: auto;
-    text-align: right;
-    color: #52525b;
-    padding: 0 0 1 0;
+/* Terminal panel: a nested "window" holding the mission log */
+#terminal-panel {
+    height: 1fr;
 }
 
 #help-panel {
@@ -264,9 +369,9 @@ DashboardScreen {
     dock: right;
     width: 42;
     height: auto;
-    border: solid #27272a;
-    background: #09090b;
-    color: #d4d4d8;
+    border: solid $border-strong;
+    background: $surface;
+    color: $text;
     padding: 1 2;
     margin: 1 1 0 0;
 }
@@ -274,19 +379,26 @@ DashboardScreen {
 #mission-log {
     width: 100%;
     height: 1fr;
-    background: #09090b;
-    color: #a1a1aa;
-    border: solid #1a1a1e;
-    padding: 1 2;
-    scrollbar-color: #3f3f46;
-    scrollbar-background: #09090b;
+    background: $surface;
+    color: $text-dim;
+    border: none;
+    padding: 1 2 0 2;
+    scrollbar-color: $text-ghost;
+    scrollbar-background: $surface;
+}
+
+#log-cursor {
+    width: 100%;
+    height: 1;
+    background: $surface;
+    padding: 0 2;
 }
 
 /* Mission Loader */
 #mission-loader {
     width: 100%;
     height: 1;
-    color: #d4d4d8;
+    color: $accent;
     background: transparent;
 }
 
@@ -330,22 +442,42 @@ CommandPalette CommandList > .option-list--option-highlighted {
 
 /* Docker Screen */
 DockerScreen {
-    color: #e4e4e7;
+    color: $text;
 }
 
 #docker-sidebar {
     width: 28;
     height: 100%;
     dock: left;
-    background: #09090b;
+    background: $surface;
     padding: 1 2;
-    border-right: solid #1a1a1e;
+    border-right: solid $border;
 }
 
 #docker-sidebar-header {
     text-align: center;
     margin-bottom: 1;
-    color: #d4d4d8;
+    color: $text;
+}
+
+#docker-menu-options {
+    border: none;
+    background: transparent;
+}
+#docker-menu-options > .option-list--option {
+    padding: 0 1;
+    color: $text-faint;
+}
+#docker-menu-options > .option-list--option-highlighted {
+    background: transparent;
+    color: $text-dim;
+}
+#docker-menu-options:focus > .option-list--option-highlighted {
+    background: $surface-raised;
+    color: $accent;
+    text-style: bold;
+    border-left: thick $accent;
+    padding: 0 1 0 0;
 }
 
 #docker-content {
@@ -356,66 +488,170 @@ DockerScreen {
 
 #docker-log-title {
     margin-bottom: 1;
-    color: #d4d4d8;
+    color: $text;
 }
 
 #docker-status {
     margin-bottom: 1;
+    color: $text-dim;
 }
 
 #docker-log {
     width: 100%;
     height: 1fr;
-    border: solid #1a1a1e;
-    background: #09090b;
-    color: #a1a1aa;
+    border: round $border;
+    background: $surface;
+    color: $text-dim;
     padding: 1;
+    scrollbar-color: $text-ghost;
+    scrollbar-background: $surface;
 }
 
-/* Settings Screen */
+/* ============================================================
+   Settings Screen / API Center
+   ============================================================ */
 SettingsScreen {
     align: center middle;
+    background: $bg;
 }
 
 #settings-container {
-    width: 70;
+    width: 82;
     height: auto;
-    padding: 2 4;
-    background: #18181b;
-    border: round #27272a;
+    max-height: 90%;
+    padding: 0;
+    background: $surface;
+    border: round $border-strong;
+}
+
+/* Header */
+#settings-header {
+    width: 100%;
+    height: auto;
+    padding: 2 3 1 3;
+    border-bottom: solid $border;
+    background: $surface;
 }
 
 #settings-title {
-    text-align: center;
-    margin-bottom: 2;
+    width: 100%;
+    color: $text;
+    text-style: bold;
+}
+
+#settings-subtitle {
+    width: 100%;
+    color: $text-faint;
+    margin-top: 0;
+}
+
+/* Scrollable body */
+#settings-scroll {
+    width: 100%;
+    height: auto;
+    max-height: 28;
+    padding: 1 3;
+    scrollbar-color: $text-ghost;
+    scrollbar-background: $surface;
+}
+
+.settings-section {
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.section-label {
+    width: 100%;
+    height: 1;
+    margin-bottom: 1;
+}
+
+/* Provider cards: brand name lives in the border title, status in the subtitle.
+   Border color is animated per-tick (idle breathing tinted with the brand color),
+   so no static border color is set here beyond the initial default. */
+.provider-card {
+    width: 100%;
+    height: auto;
+    background: $surface;
+    border: round $border-strong;
+    border-title-style: bold;
+    border-subtitle-color: $text-faint;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
+.provider-card:focus-within {
+    border: round $border-focus;
+}
+
+.config-card {
+    width: 100%;
+    height: auto;
+    background: $surface;
+    border: round $border-strong;
+    border-title-style: bold;
+    border-subtitle-color: $text-faint;
+    padding: 1 2;
+}
+
+/* Provider key rows */
+.key-field-single {
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.key-field-single:last-child {
+    margin-bottom: 0;
 }
 
 SettingsScreen Label {
-    margin-top: 1;
-    color: #a1a1aa;
+    color: $text-dim;
+    margin-bottom: 0;
 }
 
 SettingsScreen Input {
-    background: #09090b;
-    color: #e4e4e7;
-    border: round #27272a;
+    background: $surface;
+    color: $text;
+    border: round $border;
     width: 100%;
+    height: 3;
 }
 
 SettingsScreen Input:focus {
-    border: round #52525b;
+    border: round $accent-dim;
+}
+
+/* Footer actions */
+#settings-actions {
+    width: 100%;
+    height: auto;
+    padding: 1 3 0 3;
 }
 
 #save-settings {
     width: 100%;
-    margin-top: 2;
-    background: #27272a;
-    color: #e4e4e7;
+    background: $accent-dim;
+    color: #ecfeff;
     border: none;
+    text-style: bold;
 }
 
 #save-settings:hover {
-    background: #3f3f46;
+    background: $accent;
+    color: #04141a;
+}
+
+#save-settings:focus {
+    text-style: bold reverse;
+}
+
+#settings-hints {
+    width: 100%;
+    text-align: center;
+    color: $text-ghost;
+    padding: 1 0 2 0;
 }
 
 /* Sessions Modal */
@@ -429,12 +665,12 @@ SessionsModal {
 }
 
 #sessions-modal {
-    width: 70;
+    width: 74;
     height: auto;
     max-height: 35;
     padding: 2;
-    background: #09090b;
-    border: solid #1a1a1e;
+    background: $surface;
+    border: round $border-strong;
 }
 
 #modal-title {
@@ -444,9 +680,15 @@ SessionsModal {
 
 #session-list {
     height: 10;
-    border: solid #1a1a1e;
-    background: #000000;
-    color: #a1a1aa;
+    border: round $border;
+    background: $bg;
+    color: $text-dim;
+    scrollbar-color: $text-ghost;
+    scrollbar-background: $bg;
+}
+#session-list > .option-list--option-highlighted {
+    background: $surface-raised;
+    color: $text;
 }
 
 #modal-status {
@@ -460,68 +702,30 @@ SessionsModal {
     height: auto;
     margin-top: 1;
     padding: 1 2;
-    background: #000000;
-    border: solid #1a1a1e;
-    color: #a1a1aa;
+    background: $bg;
+    border: round $border;
+    color: $text-dim;
 }
 
 #modal-guidance {
     text-align: center;
 }
 
-#modal-buttons {
-    width: 100%;
-    height: auto;
-    align: center middle;
-    margin-top: 1;
-}
-
-#modal-buttons Button {
-    margin: 0 1;
-    background: #27272a;
-    color: #e4e4e7;
-    border: none;
-}
-
-#modal-buttons Button:hover {
-    background: #3f3f46;
-}
-
-#btn-delete {
-    color: #ef4444;
-}
-
-#btn-delete:hover {
-    background: #7f1d1d;
-    color: #ffffff;
-}
-
 #export-container {
     width: 100%;
     height: auto;
     margin-top: 1;
-    border-top: hkey #27272a;
+    border-top: hkey $border-strong;
     padding-top: 1;
 }
 
 #export-path {
-    background: #09090b;
-    color: #e4e4e7;
-    border: round #27272a;
+    background: $bg;
+    color: $text;
+    border: round $border-strong;
 }
 #export-path:focus {
-    border: round #52525b;
-}
-
-#btn-confirm-export {
-    width: 100%;
-    margin-top: 1;
-    background: #27272a;
-    color: #e4e4e7;
-    border: none;
-}
-#btn-confirm-export:hover {
-    background: #3f3f46;
+    border: round $accent-dim;
 }
 
 /* Neater Footer Theme */

@@ -5,6 +5,7 @@ venv/
 .venv/
 build/
 *.egg-info/
+.pytest_cache/
 sessions/
 .hekerbot_history
 scratch/
@@ -18,3 +19,13 @@ refactor_status.py
 out.txt
 fonts.txt
 test_*.py
+.claude/
+.claude.json
+CLAUDE.md
+AGENTS.md
+.cursor/
+.cursorrules
+.windsurfrules
+.windsurf/
+.aider*
+*.claude-plan.md

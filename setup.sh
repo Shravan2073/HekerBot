@@ -1,91 +1,107 @@
 #!/bin/bash
 set -e
 
-# HekerBOT Setup Script
+# HekerBOT Setup & Install Script
+#
+# Run from inside an existing checkout for local dev setup, or pipe it
+# straight from the web to bootstrap a fresh install:
+#   curl -sL https://shravan.lol/install.sh | bash
 
-echo -e "\033[1;32m[*] Checking requirements for HekerBOT...\033[0m"
+C_RESET="\033[0m"
+C_GREEN="\033[1;32m"
+C_BLUE="\033[1;34m"
+C_RED="\033[1;31m"
+C_YELLOW="\033[1;33m"
+C_DIM="\033[90m"
+C_BOLD="\033[1m"
 
-# 1. Check Python
-if ! command -v python3 &> /dev/null; then
-    echo -e "\033[1;31m[-] Python3 could not be found. Please install Python 3.10+\033[0m"
-    exit 1
+step() { echo -e " ${C_BLUE}➜${C_RESET}  $1"; }
+success() { echo -e " ${C_GREEN}✔${C_RESET}  $1"; }
+warn() { echo -e " ${C_YELLOW}⚠${C_RESET}  $1"; }
+error() { echo -e " ${C_RED}✖${C_RESET}  $1"; exit 1; }
+
+echo -e "${C_BLUE}"
+cat << 'BANNER'
+    __  __     __                   ____  ____  ________
+   / / / /__  / /_____  _____      / __ )/ __ \/_  __/
+  / /_/ / _ \/ //_/ _ \/ ___/_____/ __  / / / / / /
+ / __  /  __/ ,< /  __/ /  /_____/ /_/ / /_/ / / /
+/_/ /_/\___/_/|_|\___/_/        /_____/\____/ /_/
+BANNER
+echo -e "${C_RESET}${C_DIM}         Autonomous Agentic Red Teaming Framework${C_RESET}\n"
+
+# 1. Requirements
+step "Checking system requirements..."
+command -v git >/dev/null || error "git is not installed."
+command -v python3 >/dev/null || error "python3 (3.10+) is not installed."
+
+HAS_DOCKER=1
+if ! command -v docker >/dev/null || ! docker info >/dev/null 2>&1; then
+    warn "Docker daemon not available — the sandbox will stay disabled until it is."
+    HAS_DOCKER=0
 fi
-echo -e "\033[1;32m[+] Python3 is installed.\033[0m"
+success "Requirements satisfied."
 
-# 2. Check Docker
-if ! command -v docker &> /dev/null; then
-    echo -e "\033[1;31m[-] Docker could not be found. Please install Docker to use the Sandbox.\033[0m"
-    exit 1
-fi
-
-if ! docker info &> /dev/null; then
-    echo -e "\033[1;33m[-] Docker daemon is not running or your user does not have permission.\033[0m"
-    echo -e "\033[1;33m    Hint: sudo systemctl start docker\033[0m"
-    echo -e "\033[1;33m    Hint: sudo usermod -aG docker \$USER\033[0m"
-    exit 1
-fi
-echo -e "\033[1;32m[+] Docker is installed and running.\033[0m"
-
-# 3. Create .env if it doesn't exist
-if [ ! -f .env ]; then
-    if [ -f .env.example ]; then
-        echo -e "\033[1;34m[*] Creating default .env file from .env.example...\033[0m"
-        cp .env.example .env
-        echo -e "\033[1;33m[!] IMPORTANT: Please edit the .env file to add your API keys!\033[0m"
+# 2. Locate or clone the repository.
+# Run from inside an existing checkout (local dev) and it's used in place;
+# otherwise (e.g. curl | bash with nothing checked out yet) clone fresh.
+if [ -f "pyproject.toml" ] && grep -q '^name = "hekerbot"' pyproject.toml 2>/dev/null; then
+    REPO_DIR="$(pwd)"
+    step "Using existing checkout at ${REPO_DIR}"
+else
+    REPO_DIR="$HOME/HekerBOT"
+    if [ -d "$REPO_DIR/.git" ]; then
+        step "Updating existing install at ${REPO_DIR}..."
+        (cd "$REPO_DIR" && git pull --quiet)
+    else
+        step "Cloning repository to ${REPO_DIR}..."
+        git clone --quiet https://github.com/Shravan2073/HekerBOT.git "$REPO_DIR"
     fi
+    cd "$REPO_DIR"
+fi
+success "Repository ready at ${REPO_DIR}"
+
+# 3. .env
+if [ ! -f .env ] && [ -f .env.example ]; then
+    step "Creating default .env from .env.example..."
+    cp .env.example .env
+    warn "Edit ${REPO_DIR}/.env to add your API keys (or use the in-app API Center)."
 fi
 
-# 4. Setup Python Environment
-echo -e "\033[1;34m[*] Setting up Python virtual environment...\033[0m"
+# 4. Python environment
+step "Setting up virtual environment & installing dependencies..."
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -e . --quiet
+success "Dependencies installed."
 
-echo -e "\033[1;34m[*] Installing dependencies...\033[0m"
-pip install -e .
+# 5. Docker sandbox image
+if [ "$HAS_DOCKER" -eq 1 ]; then
+    step "Building the Docker sandbox image (this can take a minute)..."
+    docker build -t hekerbot-sandbox . > /dev/null 2>&1
+    success "Sandbox image ready."
+fi
 
-# 5. Build Docker Image
-echo -e "\033[1;34m[*] Building Docker Sandbox Image (hekerbot-sandbox)...\033[0m"
-docker build -t hekerbot-sandbox .
-
-# 6. Create `hkb` wrapper script
-echo -e "\033[1;34m[*] Creating 'hkb' shortcut...\033[0m"
+# 6. Global 'hkb' / 'hekerbot' commands.
+#
+# `pip install -e .` already produced real console-scripts for both names
+# inside ${REPO_DIR}/.venv/bin (see [project.scripts] in pyproject.toml) —
+# no bespoke update-check logic belongs here. Update checking + animation
+# lives in hekerbot's own startup path (src/hekerbot/meow.py) so it runs
+# identically whichever name launches it, and can never drift out of sync
+# with a hardcoded path baked in at install time.
+step "Linking 'hkb' and 'hekerbot' onto your PATH..."
 mkdir -p ~/.local/bin
+ln -sf "${REPO_DIR}/.venv/bin/hekerbot" ~/.local/bin/hekerbot
+ln -sf "${REPO_DIR}/.venv/bin/hkb" ~/.local/bin/hkb
+success "Both commands now point at ${REPO_DIR}."
 
-REPO_DIR="$(pwd)"
-cat << EOF > ~/.local/bin/hkb
-#!/bin/bash
-# HekerBOT execution wrapper
-cd "${REPO_DIR}"
-
-# Fast, silent check for updates (timeout prevents hanging if offline)
-echo -ne "\033[90m[*] Checking for updates...\r\033[0m"
-if timeout 3 git fetch origin main --quiet 2>/dev/null; then
-    LOCAL=\$(git rev-parse HEAD 2>/dev/null)
-    REMOTE=\$(git rev-parse origin/main 2>/dev/null)
-    if [ -n "\$LOCAL" ] && [ -n "\$REMOTE" ] && [ "\$LOCAL" != "\$REMOTE" ]; then
-        echo -e "\n\033[1;33m[*] New version detected! Updating HekerBOT...\033[0m"
-        git pull --quiet
-        source .venv/bin/activate
-        pip install -e . --quiet
-        echo -e "\033[1;32m[*] Update complete.\033[0m"
-    fi
-fi
-echo -ne "\033[2K\r"
-
-source "${REPO_DIR}/.venv/bin/activate"
-exec hekerbot "\$@"
-EOF
-
-chmod +x ~/.local/bin/hkb
-
-# Ensure ~/.local/bin is in PATH for the current session warning
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    echo -e "\033[1;33m[!] Note: ~/.local/bin is not in your PATH.\033[0m"
-    echo -e "\033[1;33m    You may need to run 'export PATH=\$HOME/.local/bin:\$PATH' or add it to your ~/.bashrc\033[0m"
+    echo ""
+    warn "~/.local/bin is not on your PATH."
+    echo -e "    Run: ${C_BOLD}export PATH=\$HOME/.local/bin:\$PATH${C_RESET}  (add it to your shell rc to keep it)"
 fi
 
-echo -e "\033[1;32m============================================================\033[0m"
-echo -e "\033[1;32m[+] Setup Complete!\033[0m"
-echo -e "\033[1;32m[+] You can now run the application from anywhere by typing:\033[0m"
-echo -e "\033[1;37m    hkb\033[0m"
-echo -e "\033[1;32m============================================================\033[0m"
+echo ""
+echo -e "${C_GREEN}${C_BOLD}Setup complete!${C_RESET} Launch HekerBOT anytime with: ${C_BOLD}hkb${C_RESET}"
+echo ""

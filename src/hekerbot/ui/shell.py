@@ -1,12 +1,14 @@
 import os
+import math
 import asyncio
 import subprocess
 from textual import work
 from textual.app import App, ComposeResult
 from textual.screen import Screen
-from textual.containers import Vertical, Horizontal
-from textual.widgets import Static, OptionList, Input, Button, Label, RichLog, Footer, LoadingIndicator, TextArea
+from textual.containers import Vertical, Horizontal, VerticalScroll
+from textual.widgets import Static, OptionList, Input, Button, Label, RichLog, Footer, TextArea
 from textual.reactive import reactive
+from textual.color import Color
 from textual import events
 from rich.text import Text
 from dotenv import set_key, find_dotenv
@@ -95,36 +97,113 @@ class HelpPanel(Static):
             id="help-panel",
         )
 
+class Spinner(Static):
+    """A braille-frame spinner, in the spirit of modern CLI 'working' indicators."""
+
+    FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    frame_index = reactive(0)
+    label_text = reactive("Agent executing")
+
+    def on_mount(self) -> None:
+        self.set_interval(0.08, self._tick)
+
+    def _tick(self) -> None:
+        self.frame_index = (self.frame_index + 1) % len(self.FRAMES)
+
+    def render(self) -> Text:
+        return Text(f"{self.FRAMES[self.frame_index]}  {self.label_text}...", style="bold #22d3ee")
+
+
+class ShineText(Static):
+    """A line of plain text with a slow light sweep passing across it —
+    the same idea as BigBanner's shine, generalized for ordinary labels."""
+
+    shine_offset = reactive(-8.0)
+
+    def __init__(self, text: str, base_color: str = "#71717a", shine_color: str = "#f4f4f5",
+                 speed: float = 0.6, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._text = text
+        self._base_color = base_color
+        self._shine_color = shine_color
+        self._speed = speed
+
+    def on_mount(self) -> None:
+        self.set_interval(0.05, self._tick)
+
+    def _tick(self) -> None:
+        self.shine_offset += self._speed
+        if self.shine_offset > len(self._text) + 8:
+            self.shine_offset = -8.0
+
+    @staticmethod
+    def _hex(color: str) -> tuple[int, int, int]:
+        return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+
+    def render(self) -> Text:
+        result = Text()
+        br, bg_, bb = self._hex(self._base_color)
+        sr, sg, sb = self._hex(self._shine_color)
+        for i, char in enumerate(self._text):
+            distance = abs(i - self.shine_offset)
+            if distance < 5:
+                intensity = (1.0 - (distance / 5.0)) ** 1.5
+                r = int(br + (sr - br) * intensity)
+                g = int(bg_ + (sg - bg_) * intensity)
+                b = int(bb + (sb - bb) * intensity)
+                result.append(char, style=f"#{r:02x}{g:02x}{b:02x}")
+            else:
+                result.append(char, style=self._base_color)
+        return result
+
+
 class SettingsScreen(Screen):
-    """Settings screen for configuring API keys and models."""
+    """API Center — configure provider keys and the active agent model."""
     BINDINGS = [
         ("up", "focus_previous", "Previous"),
         ("down", "focus_next", "Next"),
+        ("escape", "return_to_arcade", "Back"),
+    ]
+
+    # (field id, display name, placeholder, env var, accent color)
+    PROVIDERS = [
+        ("openai-key", "OpenAI", "sk-...", "OPENAI_API_KEY", "#10a37f"),
+        ("anthropic-key", "Anthropic", "sk-ant-...", "ANTHROPIC_API_KEY", "#d97757"),
+        ("gemini-key", "Gemini", "AIza...", "GEMINI_API_KEY", "#4285f4"),
+        ("opencode-key", "OpenCode", "sk-...", "OPENCODE_API_KEY", "#8b5cf6"),
     ]
 
     def compose(self) -> ComposeResult:
         with Vertical(id="settings-container"):
-            yield Static("[bold #e4e4e7]API KEY CONFIGURATION[/]", id="settings-title")
-            
-            yield Label("OpenAI API Key:")
-            yield Input(placeholder="sk-...", id="openai-key", password=True)
-            
-            yield Label("Anthropic API Key:")
-            yield Input(placeholder="sk-ant-...", id="anthropic-key", password=True)
-            
-            yield Label("Gemini API Key:")
-            yield Input(placeholder="AIza...", id="gemini-key", password=True)
-            
-            yield Label("OpenCode API Key:")
-            yield Input(placeholder="sk-...", id="opencode-key", password=True)
-            
-            yield Label("Other Model/Provider URL (Optional):")
-            yield Input(placeholder="https://...", id="other-key", password=False)
+            with Vertical(id="settings-header"):
+                yield ShineText("API CENTER", base_color="#a1a1aa", shine_color="#ffffff", speed=0.5, id="settings-title")
+                yield Static("[dim]Configure provider keys and the active agent model[/]", id="settings-subtitle")
 
-            yield Label("Agent Model (e.g. opencode/deepseek-coder, gemini/gemini-2.5-flash):")
-            yield Input(placeholder="opencode/deepseek-coder", id="heker-model", password=False)
-            
-            yield Button("SAVE & RETURN", id="save-settings")
+            with VerticalScroll(id="settings-scroll"):
+                with Vertical(classes="settings-section"):
+                    yield ShineText("MODEL PROVIDERS", base_color="#52525b", shine_color="#d4d4d8", speed=0.3, classes="section-label")
+                    for field_id, name, placeholder, _env, color in self.PROVIDERS:
+                        with Vertical(classes="provider-card", id=f"{field_id}-card"):
+                            yield Input(placeholder=placeholder, id=field_id, password=True)
+
+                with Vertical(classes="settings-section"):
+                    with Vertical(classes="config-card", id="config-card"):
+                        with Vertical(classes="key-field-single"):
+                            yield Label("Custom Base URL (optional)")
+                            yield Input(placeholder="https://...", id="other-key", password=False)
+                        with Vertical(classes="key-field-single"):
+                            yield Label("Agent Model  [dim](e.g. opencode/deepseek-coder, gemini/gemini-2.5-flash)[/]")
+                            yield Input(placeholder="opencode/deepseek-coder", id="heker-model", password=False)
+
+            with Horizontal(id="settings-actions"):
+                yield Button("SAVE & RETURN", id="save-settings", variant="primary")
+
+            yield Static(
+                "[dim]ESC[/dim] cancel   [dim]TAB[/dim] navigate fields   [dim]ENTER[/dim] confirm",
+                id="settings-hints",
+            )
+
+    _card_phase = 0.0
 
     def on_mount(self) -> None:
         if "OPENAI_API_KEY" in os.environ:
@@ -138,6 +217,59 @@ class SettingsScreen(Screen):
         if "HEKER_MODEL" in os.environ:
             self.query_one("#heker-model", Input).value = os.environ["HEKER_MODEL"]
 
+        # Provider name embedded directly in the card's border line.
+        for field_id, name, _placeholder, _env, color in self.PROVIDERS:
+            card = self.query_one(f"#{field_id}-card")
+            card.border_title = f"[{color}]●[/] {name}"
+        self.query_one("#config-card").border_title = "agent_config"
+
+        self.update_status_pills()
+
+        # Subtle entrance animation, in the spirit of a modern CLI splash-in.
+        container = self.query_one("#settings-container")
+        container.styles.opacity = 0.0
+        container.styles.animate("opacity", value=1.0, duration=0.28, easing="out_cubic")
+
+        # Each card breathes gently, tinted with its own brand color — alive even at idle.
+        self.set_interval(0.08, self._tick_card_glow)
+
+    def _tick_card_glow(self) -> None:
+        self._card_phase += 0.03
+        try:
+            for i, (field_id, _name, _placeholder, _env, color) in enumerate(self.PROVIDERS):
+                card = self.query_one(f"#{field_id}-card")
+                card.styles.border = ("round", Color.parse(self._breathe("#27272a", color, self._card_phase + i * 1.1)))
+            self.query_one("#config-card").styles.border = (
+                "round", Color.parse(self._breathe("#27272a", "#22d3ee", self._card_phase + 4.4))
+            )
+        except Exception:
+            pass
+
+    @staticmethod
+    def _breathe(base_hex: str, bright_hex: str, phase: float, amplitude: float = 0.35) -> str:
+        """Low-amplitude color interpolation for an idle breathing border."""
+        intensity = ((math.sin(phase) + 1) / 2) * amplitude
+        br, bg_, bb = int(base_hex[1:3], 16), int(base_hex[3:5], 16), int(base_hex[5:7], 16)
+        tr, tg, tb = int(bright_hex[1:3], 16), int(bright_hex[3:5], 16), int(bright_hex[5:7], 16)
+        r = int(br + (tr - br) * intensity)
+        g = int(bg_ + (tg - bg_) * intensity)
+        b = int(bb + (tb - bb) * intensity)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def update_status_pills(self) -> None:
+        """Reflect whether each provider key is currently configured, in the card's border subtitle."""
+        for field_id, _name, _placeholder, env, _color in self.PROVIDERS:
+            card = self.query_one(f"#{field_id}-card")
+            val = os.environ.get(env, "")
+            if val:
+                suffix = val[-4:] if len(val) >= 4 else val
+                card.border_subtitle = f"[#22c55e]●[/] configured ···{suffix}"
+            else:
+                card.border_subtitle = "[dim]○ not set[/]"
+
+    def action_return_to_arcade(self) -> None:
+        self.app.pop_screen()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save-settings":
             env_file = find_dotenv()
@@ -148,33 +280,35 @@ class SettingsScreen(Screen):
             if openai_val:
                 os.environ["OPENAI_API_KEY"] = openai_val
                 set_key(env_file, "OPENAI_API_KEY", openai_val)
-            
+
             anthropic_val = self.query_one("#anthropic-key", Input).value.strip()
             if anthropic_val:
                 os.environ["ANTHROPIC_API_KEY"] = anthropic_val
                 set_key(env_file, "ANTHROPIC_API_KEY", anthropic_val)
-            
+
             gemini_val = self.query_one("#gemini-key", Input).value.strip()
             if gemini_val:
                 os.environ["GEMINI_API_KEY"] = gemini_val
                 set_key(env_file, "GEMINI_API_KEY", gemini_val)
-            
+
             opencode_val = self.query_one("#opencode-key", Input).value.strip()
             if opencode_val:
                 os.environ["OPENCODE_API_KEY"] = opencode_val
                 set_key(env_file, "OPENCODE_API_KEY", opencode_val)
-            
+
             other_url = self.query_one("#other-key", Input).value.strip()
             if other_url:
                 os.environ["OPENAI_BASE_URL"] = other_url
                 set_key(env_file, "OPENAI_BASE_URL", other_url)
-            
+
             model_val = self.query_one("#heker-model", Input).value.strip()
             if model_val:
                 os.environ["HEKER_MODEL"] = model_val
                 self.app.agent.brain.model = model_val
                 set_key(env_file, "HEKER_MODEL", model_val)
-            
+
+            self.update_status_pills()
+            self.app.notify("[bold #22d3ee]Configuration saved.[/]", title="API Center", severity="information")
             self.app.pop_screen()
 
 class SessionsModal(Screen):
@@ -302,28 +436,22 @@ class SessionsModal(Screen):
 
         # Get the dashboard and kick off the resume
         dashboard = self.app.screen
-        log = dashboard.query_one("#mission-log", RichLog)
-        status = dashboard.query_one("#status-display", Static)
-
-        log.clear()
-        log.write("==================================================")
-        log.write(f" RESUMING SESSION: {sid}")
-        log.write(f" Target: {state.target}")
-        log.write(f" Previous commands: {len(state.command_results)}")
-        log.write("==================================================\n")
-
-        self.app.notify(f"[bold #d4d4d8]RESUMING SESSION[/]\n\nSession: {sid}\nTarget: [bold white]{state.target}[/]", title="Resumed")
-        dashboard.query_one("#target-input", Input).value = state.target
         try:
+            log = dashboard.query_one("#mission-log", RichLog)
+
+            log.clear()
+            log.write(f"[#22d3ee]●[/] [bold]Resuming session[/] [dim]{sid}[/]")
+            log.write(f"  [dim]target[/]    {state.target}")
+            log.write(f"  [dim]commands[/]  {len(state.command_results)}")
+            log.write("")
+
+            self.app.notify(f"[bold #d4d4d8]RESUMING SESSION[/]\n\nSession: {sid}\nTarget: [bold white]{state.target}[/]", title="Resumed")
+            dashboard.query_one("#target-input", Input).value = state.target
             dashboard.query_one("#instructions-input", TextArea).text = state.goal or ""
-        except Exception:
-            pass
-        try:
-            dashboard.query_one("#goal-input", Input).value = state.goal or ""
-        except Exception:
-            pass
-        dashboard.query_one("#mission-loader").remove_class("hidden")
-        dashboard.run_agent_resume(sid)
+            dashboard.query_one("#mission-loader").remove_class("hidden")
+            dashboard.run_agent_resume(sid)
+        except Exception as e:
+            self.app.notify(f"[bold #ef4444]Failed to resume session:[/] {e}", title="Error", severity="error")
 
     def action_delete_session(self) -> None:
         sid = self._get_selected_id()
@@ -408,18 +536,19 @@ class DockerScreen(Screen):
     def compose(self) -> ComposeResult:
         with Horizontal():
             with Vertical(id="docker-sidebar"):
-                yield Static("[bold #e4e4e7]DOCKER[/]", id="docker-sidebar-header")
+                yield Static("[dim]DOCKER[/]", id="docker-sidebar-header")
                 yield OptionList(
                     "Toggle Docker Mode",
                     "Back to Dashboard",
                     id="docker-menu-options"
                 )
             with Vertical(id="docker-content"):
-                yield Static("[bold #e4e4e7]DOCKER DAEMON LOGS[/]", id="docker-log-title")
                 yield Static("Checking status...", id="docker-status")
-                yield RichLog(id="docker-log", wrap=True)
+                with Vertical(id="docker-log-panel", classes="dash-panel"):
+                    yield RichLog(id="docker-log", wrap=True, markup=True)
 
     def on_mount(self) -> None:
+        self.query_one("#docker-log-panel").border_title = "docker.log"
         self.refresh_status()
         self.log_status()
 
@@ -427,62 +556,71 @@ class DockerScreen(Screen):
         log = self.query_one("#docker-log", RichLog)
         is_enabled = self.app.agent.docker_mode_enabled
         if is_enabled:
-            log.write("[bold #d4d4d8]DOCKER BACKEND STATUS[/]")
-            log.write("[SYSTEM] Checking daemon connection...")
+            log.write("[bold]● Docker backend[/]")
+            log.write("[dim]checking daemon connection...[/]")
             executor = self.app.agent.executor
             if executor.is_available():
-                log.write("[bold #22c55e]CONNECTED[/] Daemon is reachable.\n")
-                
+                log.write("[#22c55e]●[/] [bold]connected[/] [dim]daemon is reachable[/]")
+                log.write("")
+
                 try:
                     # Fetch detailed Docker info
                     client = executor.client
                     info = client.info()
                     version = client.version()
-                    
-                    log.write(f"  [#71717a]Server Version:[/] {version.get('Version', 'Unknown')}")
-                    log.write(f"  [#71717a]OS/Arch:[/] {info.get('OperatingSystem', 'Unknown')} ({info.get('Architecture', 'Unknown')})")
-                    log.write(f"  [#71717a]CPUs:[/] {info.get('NCPU', 'Unknown')}  |  [#71717a]Memory:[/] {round(info.get('MemTotal', 0) / (1024**3), 2)} GB\n")
 
-                    log.write("[bold #d4d4d8]SANDBOX IMAGE[/]")
+                    log.write(f"  [dim]server[/]    {version.get('Version', 'Unknown')}")
+                    log.write(f"  [dim]os/arch[/]   {info.get('OperatingSystem', 'Unknown')} ({info.get('Architecture', 'Unknown')})")
+                    log.write(f"  [dim]cpu/mem[/]   {info.get('NCPU', 'Unknown')} cores  ·  {round(info.get('MemTotal', 0) / (1024**3), 2)} GB")
+                    log.write("")
+
+                    log.write("[bold]● Sandbox image[/]")
                     try:
                         image = client.images.get(executor.image_name)
                         size_mb = round(image.attrs['Size'] / (1024 * 1024), 1)
                         created = image.attrs.get('Created', 'Unknown')[:10]
-                        log.write(f"  [#71717a]Tag:[/] {executor.image_name}:latest")
-                        log.write(f"  [#71717a]Size:[/] {size_mb} MB  |  [#71717a]Created:[/] {created}")
-                        log.write("  [bold #22c55e]READY[/] Image is available.\n")
+                        log.write(f"  [dim]tag[/]       {executor.image_name}:latest")
+                        log.write(f"  [dim]size[/]      {size_mb} MB  ·  [dim]created[/] {created}")
+                        log.write("  [#22c55e]●[/] [bold]ready[/] [dim]image is available[/]")
                     except Exception:
-                        log.write(f"  [#71717a]Tag:[/] {executor.image_name}")
-                        log.write("  [bold #eab308]NOT FOUND[/] Image is missing. Run a mission to auto-build it.\n")
+                        log.write(f"  [dim]tag[/]       {executor.image_name}")
+                        log.write("  [#eab308]●[/] [bold]not found[/] [dim]missing — run a mission to auto-build it[/]")
+                    log.write("")
 
-                    log.write("[bold #d4d4d8]ACTIVE CONTAINERS[/]")
+                    log.write("[bold]● Active containers[/]")
                     containers = client.containers.list(filters={"ancestor": executor.image_name})
                     if containers:
-                        log.write(f"  [#71717a]Running sandbox containers:[/] {len(containers)}")
+                        log.write(f"  [dim]running[/]   {len(containers)}")
                         for c in containers:
-                            log.write(f"    - {c.short_id} ({c.status})")
+                            log.write(f"    [dim]-[/] {c.short_id} ({c.status})")
                     else:
-                        log.write("  [#71717a]Running sandbox containers:[/] 0")
-                        
-                    log.write("\n[bold #22c55e]Subsystems ONLINE and isolated.[/]")
-                    
+                        log.write("  [dim]running[/]   0")
+
+                    log.write("")
+                    log.write("[#22c55e]●[/] [bold]subsystems online[/] [dim]and isolated[/]")
+
                 except Exception as e:
-                    log.write(f"[ERROR] Failed to fetch advanced info: {str(e)}")
+                    log.write(f"[#ef4444]●[/] [bold]error[/] failed to fetch advanced info: {str(e)}")
             else:
-                log.write("[bold #ef4444]DISCONNECTED[/]")
-                log.write("[ERROR] Could not connect to Docker daemon!")
-                log.write("[!] Check if Docker is running and your user has permissions.")
+                log.write("[#ef4444]●[/] [bold]disconnected[/]")
+                log.write("[dim]could not connect to the docker daemon[/]")
+                log.write("[dim]check if docker is running and your user has permissions[/]")
         else:
-            log.write("[bold #d4d4d8]DOCKER BACKEND STATUS[/]")
-            log.write("[bold #a1a1aa]OFFLINE[/]")
-            log.write("\n[SYSTEM] Docker isolation is DISABLED.")
-            log.write("[WARNING] Commands will be executed directly on the local host!")
+            log.write("[bold]● Docker backend[/]")
+            log.write("[dim]○ offline[/]")
+            log.write("")
+            log.write("[dim]docker isolation is disabled — commands run directly on the local host[/]")
 
     def refresh_status(self) -> None:
         is_enabled = self.app.agent.docker_mode_enabled
-        status_text = "[bold white]ENABLED[/] (Ready to sandbox)" if is_enabled else "[bold #a1a1aa]DISABLED[/] (Running on local host)"
+        status_text = "[bold]ENABLED[/] (ready to sandbox)" if is_enabled else "[dim]DISABLED[/] (running on local host)"
         self.query_one("#docker-status", Static).update(f"Docker isolation is currently {status_text}.")
-        
+        try:
+            panel = self.query_one("#docker-log-panel")
+            panel.border_subtitle = "[#22c55e]●[/] enabled" if is_enabled else "[dim]○ disabled[/]"
+        except Exception:
+            pass
+
         try:
             for screen in self.app.screen_stack:
                 if hasattr(screen, "update_docker_header"):
@@ -493,7 +631,7 @@ class DockerScreen(Screen):
     def action_toggle_docker(self) -> None:
         self.app.agent.docker_mode_enabled = not self.app.agent.docker_mode_enabled
         self.refresh_status()
-        self.query_one("#docker-log", RichLog).write("==================================================")
+        self.query_one("#docker-log", RichLog).write("")
         self.log_status()
         
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
@@ -506,13 +644,14 @@ class DockerScreen(Screen):
 
 class DashboardScreen(Screen):
     """The main working dashboard."""
-    VIEW_MAP = {
-        "▸ Start Mission": "start",
-        "▸ Stop Mission": "stop",
-        "▸ Agent Status": "status",
-        "▸ Sessions": "sessions",
-        "▸ Docker Mode": "docker"
-    }
+    MENU_ITEMS = [
+        ("▶", "Start Mission", "start"),
+        ("■", "Stop Mission", "stop"),
+        ("◆", "Agent Status", "status"),
+        ("▤", "Sessions", "sessions"),
+        ("⬡", "Docker Mode", "docker"),
+    ]
+    ACTION_MAP = {f"{icon}  {label}": action for icon, label, action in MENU_ITEMS}
 
     @staticmethod
     def _parse_target_and_goal(raw_target: str, ui_goal: str) -> tuple[str, str]:
@@ -528,19 +667,17 @@ class DashboardScreen(Screen):
     def compose(self) -> ComposeResult:
         # Top header bar spanning full width
         with Horizontal(id="dash-topbar"):
-            yield Static("[bold #d4d4d8]HEKERBOT[/]", id="dash-brand")
+            with Horizontal(id="dash-brand"):
+                yield Static("[bold #d4d4d8]⬡[/] ", id="dash-brand-icon")
+                yield ShineText("HEKERBOT", base_color="#a1a1aa", shine_color="#ffffff", speed=0.5, id="dash-brand-text")
             yield Static("", id="dash-status-line")
 
         with Horizontal(id="dash-body"):
             # Sidebar
             with Vertical(id="sidebar"):
-                yield Static("[dim]OPERATIONS[/]", id="sidebar-header")
+                yield ShineText("OPERATIONS", base_color="#52525b", shine_color="#d4d4d8", speed=0.3, id="sidebar-header")
                 yield OptionList(
-                    "▸ Start Mission",
-                    "▸ Stop Mission",
-                    "▸ Agent Status",
-                    "▸ Sessions",
-                    "▸ Docker Mode",
+                    *(f"{icon}  {label}" for icon, label, _action in self.MENU_ITEMS),
                     id="menu-options"
                 )
                 yield Static("", id="sidebar-spacer")
@@ -548,49 +685,175 @@ class DashboardScreen(Screen):
 
             # Main content
             with Vertical(id="content-container"):
-                with Vertical(id="setup-panel", classes="box-panel"):
-                    yield Static("[dim]TARGET[/]", id="target-label")
-                    yield Input(placeholder="Enter IP or domain...", id="target-input")
-                    yield Static("[dim]INSTRUCTIONS (Initial & Live)[/]", id="instructions-label")
-                    yield TextArea(id="instructions-input")
-                yield LoadingIndicator(id="mission-loader", classes="hidden")
-                with Horizontal(id="headers-container"):
-                    yield Static("● [bold #d4d4d8]TERMINAL[/] [dim]· live[/]", id="log-header")
-                    yield Static("○ [bold #52525b]DOCKER[/] [dim]· offline[/]", id="docker-header")
-                yield RichLog(id="mission-log", wrap=True)
+                with Horizontal(id="stat-tiles"):
+                    with Vertical(id="tile-agent", classes="stat-tile"):
+                        yield Static("", id="stat-agent-value", classes="stat-tile-value")
+                    with Vertical(id="tile-docker", classes="stat-tile"):
+                        yield Static("", id="stat-docker-value", classes="stat-tile-value")
+                    with Vertical(id="tile-sessions", classes="stat-tile"):
+                        yield Static("", id="stat-sessions-value", classes="stat-tile-value")
+
+                with Vertical(id="setup-panel", classes="dash-panel"):
+                    with Horizontal(classes="panel-body"):
+                        with Vertical(id="target-column"):
+                            yield Static("[dim]TARGET[/]", id="target-label")
+                            yield Input(placeholder="Enter IP or domain...", id="target-input")
+                        with Vertical(id="instructions-column"):
+                            yield Static("[dim]INSTRUCTIONS (Initial & Live)[/]", id="instructions-label")
+                            yield TextArea(id="instructions-input")
+                yield Spinner(id="mission-loader", classes="hidden")
+                with Vertical(id="terminal-panel", classes="dash-panel"):
+                    yield RichLog(id="mission-log", wrap=True, markup=True)
+                    yield Static(" ", id="log-cursor")
+
+    _pulse_phase = 0.0
+    _idle_phase = 0.0
+    _last_running = False
 
     def on_mount(self) -> None:
+        # Titles embedded directly in the border line, in the spirit of a
+        # clean native terminal UI — no separate chrome bars needed.
+        self.query_one("#tile-agent").border_title = "agent"
+        self.query_one("#tile-docker").border_title = "docker"
+        self.query_one("#tile-sessions").border_title = "sessions"
+        self.query_one("#setup-panel").border_title = "mission_config"
+        self.query_one("#terminal-panel").border_title = "mission.log"
+
         self.update_status_line()
         self.update_docker_header()
+        self.update_log_header()
+        self.update_setup_badge()
+        self._update_panel_glow(self.app.agent.running)
         self.set_interval(0.5, self.update_docker_header)
         self.set_interval(1.0, self.update_status_line)
+        self.set_interval(0.08, self._tick_pulse)
+
+        # Staggered cascade-in entrance for the content panels, in the spirit
+        # of a modern CLI splash-in (rather than everything popping in at once).
+        for i, widget_id in enumerate(("#stat-tiles", "#setup-panel", "#terminal-panel")):
+            widget = self.query_one(widget_id)
+            widget.styles.opacity = 0.0
+            delay = 0.05 + i * 0.08
+            self.set_timer(
+                delay,
+                lambda w=widget: w.styles.animate("opacity", value=1.0, duration=0.25, easing="out_cubic"),
+            )
+
+    def _tick_pulse(self) -> None:
+        self._pulse_phase += 0.18
+        self._idle_phase += 0.035
+        running = self.app.agent.running
+        if running or running != self._last_running:
+            self.update_status_line()
+            self.update_log_header()
+        self._update_panel_glow(running)
+        self._tick_log_cursor()
+        self._last_running = running
+
+    def _update_panel_glow(self, running: bool) -> None:
+        """Every box breathes gently at all times; the terminal panel + agent tile
+        switch to a brighter, faster breath while a mission is actually live."""
+        try:
+            # Slow, subtle ambient breathing — alive even when idle.
+            idle_glow = Color.parse(self._pulse_color("#27272a", "#3f3f46", phase=self._idle_phase))
+            self.query_one("#setup-panel").styles.border = ("round", idle_glow)
+            self.query_one("#tile-docker").styles.border = (
+                "round", Color.parse(self._pulse_color("#27272a", "#3f3f46", phase=self._idle_phase + 1.2))
+            )
+            self.query_one("#tile-sessions").styles.border = (
+                "round", Color.parse(self._pulse_color("#27272a", "#3f3f46", phase=self._idle_phase + 2.4))
+            )
+
+            if running:
+                glow = Color.parse(self._pulse_color("#0e7490", "#22d3ee"))
+            else:
+                glow = idle_glow
+            self.query_one("#terminal-panel").styles.border = ("round", glow)
+            self.query_one("#tile-agent").styles.border = ("round", glow)
+        except Exception:
+            pass
+
+    def _tick_log_cursor(self) -> None:
+        """A soft blinking cursor at the foot of the terminal panel, alive even at idle."""
+        try:
+            cursor = self.query_one("#log-cursor", Static)
+            blink_on = math.sin(self._idle_phase * 2.6) > 0
+            cursor.update("[#22d3ee]▌[/]" if blink_on else " ")
+        except Exception:
+            pass
+
+    def _pulse_color(self, base_hex: str, bright_hex: str, phase: float | None = None) -> str:
+        """Interpolate between a base and bright color for a breathing effect."""
+        p = self._pulse_phase if phase is None else phase
+        intensity = (math.sin(p) + 1) / 2
+        br, bg_, bb = int(base_hex[1:3], 16), int(base_hex[3:5], 16), int(base_hex[5:7], 16)
+        tr, tg, tb = int(bright_hex[1:3], 16), int(bright_hex[3:5], 16), int(bright_hex[5:7], 16)
+        r = int(br + (tr - br) * intensity)
+        g = int(bg_ + (tg - bg_) * intensity)
+        b = int(bb + (tb - bb) * intensity)
+        return f"#{r:02x}{g:02x}{b:02x}"
 
     def update_status_line(self) -> None:
         try:
             agent = self.app.agent
-            state = "[#d4d4d8]● RUNNING[/]" if agent.running else "[#52525b]○ IDLE[/]"
-            docker = "[#d4d4d8]● DOCKER[/]" if agent.docker_mode_enabled else "[#52525b]○ LOCAL[/]"
+            if agent.running:
+                dot_color = self._pulse_color("#0e7490", "#67e8f9")
+                state_text = f"[{dot_color}]●[/] [bold]RUNNING[/]"
+            else:
+                state_text = "[dim]○ IDLE[/]"
+            docker_text = (
+                "[#22d3ee]●[/] DOCKER"
+                if agent.docker_mode_enabled
+                else "[dim]○ LOCAL[/]"
+            )
             version = get_app_version()
             self.query_one("#dash-status-line", Static).update(
-                f"{state}  {docker}  [dim]{version}[/]"
+                f"{state_text}   {docker_text}   [dim]{version}[/]"
             )
+            self.query_one("#stat-agent-value", Static).update(state_text)
+            self.query_one("#stat-docker-value", Static).update(docker_text)
+            try:
+                count = len(agent.persistence.list_sessions())
+            except Exception:
+                count = 0
+            self.query_one("#stat-sessions-value", Static).update(f"[dim]{count} saved[/]")
+        except Exception:
+            pass
+
+    def update_setup_badge(self) -> None:
+        try:
+            has_target = bool(self.query_one("#target-input", Input).value.strip())
+            badge = "[#22c55e]●[/] armed" if has_target else "[dim]○ idle[/]"
+            self.query_one("#setup-panel").border_subtitle = badge
+        except Exception:
+            pass
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "target-input":
+            self.update_setup_badge()
+
+    def _refresh_terminal_subtitle(self) -> None:
+        try:
+            agent = self.app.agent
+            docker_text = "[#22d3ee]●[/] docker" if agent.docker_mode_enabled else "[dim]○ local[/]"
+            if agent.running:
+                dot_color = self._pulse_color("#0e7490", "#67e8f9")
+                live_text = f"[{dot_color}]●[/] live"
+            else:
+                live_text = "[dim]○ idle[/]"
+            self.query_one("#terminal-panel").border_subtitle = f"{docker_text}   {live_text}"
         except Exception:
             pass
 
     def update_docker_header(self) -> None:
-        try:
-            is_enabled = self.app.agent.docker_mode_enabled
-            if is_enabled:
-                header = "● [bold #d4d4d8]DOCKER[/] [dim]· ready[/]"
-            else:
-                header = "○ [bold #52525b]DOCKER[/] [dim]· offline[/]"
-            self.query_one("#docker-header", Static).update(header)
-        except Exception:
-            pass
+        self._refresh_terminal_subtitle()
+
+    def update_log_header(self) -> None:
+        self._refresh_terminal_subtitle()
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if event.option_list.id == "menu-options":
-            action = self.VIEW_MAP.get(str(event.option.prompt), "status")
+            action = self.ACTION_MAP.get(str(event.option.prompt), "status")
             self.execute_action(action)
 
     def on_key(self, event: events.Key) -> None:
@@ -630,11 +893,7 @@ class DashboardScreen(Screen):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "target-input":
             self.execute_action("start")
-        elif event.input.id == "goal-input":
-            self.query_one("#operator-input", Input).focus()
-        elif event.input.id == "operator-input":
-            self.execute_action("chat")
-            
+
     @work(thread=True)
     def run_agent_mission(self, target: str, goal: str = "") -> None:
         log_widget = self.query_one("#mission-log", RichLog)
@@ -703,7 +962,6 @@ class DashboardScreen(Screen):
             
     def execute_action(self, action: str) -> None:
         try:
-            pass # No status display anymore
             log = self.query_one("#mission-log", RichLog)
         except Exception:
             return
@@ -712,14 +970,10 @@ class DashboardScreen(Screen):
         
         if action == "start":
             target_raw = self.query_one("#target-input", Input).value.strip()
-            goal_input = ""
             try:
                 goal_input = self.query_one("#instructions-input", TextArea).text.strip()
             except Exception:
-                try:
-                    goal_input = self.query_one("#goal-input", Input).value.strip()
-                except Exception:
-                    goal_input = ""
+                goal_input = ""
             target, goal = self._parse_target_and_goal(target_raw, goal_input)
             if not target:
                 self.notify("[bold #ef4444]ERROR: NO TARGET ACQUIRED[/]\n\nPlease enter a target IP or domain in the input field above.", title="Error", severity="error")
@@ -739,12 +993,11 @@ class DashboardScreen(Screen):
             , title="Status", severity="information")
             
             log.clear()
-            log.write("==================================================")
-            log.write(" MISSION LOG INITIALIZED")
-            log.write(f" Target: {target}")
+            log.write("[#22d3ee]●[/] [bold]Mission initialized[/]")
+            log.write(f"  [dim]target[/]  {target}")
             if goal:
-                log.write(f" Goal: {goal}")
-            log.write("==================================================\n")
+                log.write(f"  [dim]goal[/]    {goal}")
+            log.write("")
             
             self.query_one("#mission-loader").remove_class("hidden")
             self.run_agent_mission(target, goal=goal)
@@ -787,23 +1040,56 @@ class ArcadeScreen(Screen):
         with Vertical(id="main-container"):
             yield Static(get_app_version(), id="top-info")
             yield BigBanner(id="banner")
-            
-            yield OptionList(
-                "Get Cracking !!",
-                "API Center",
-                id="menu"
+            yield ShineText(
+                "AUTONOMOUS   AGENTIC   RED   TEAMING",
+                base_color="#3f3f46", shine_color="#a1a1aa", speed=0.4,
+                id="tagline",
             )
-            
-            
+
+            with Horizontal(id="menu-row"):
+                with Vertical(id="menu-card"):
+                    yield OptionList(
+                        "▶  Get Cracking !!",
+                        "⬡  API Center",
+                        id="menu"
+                    )
+                    yield Static("", id="arcade-pulse")
+
         with Horizontal(id="start-hints"):
             yield Static("Navigation: [bold white]↑/↓[/] · Select: [bold white]ENTER[/] · Back: [bold white]ESC[/]", id="hints-left")
             yield Static("Quit: [bold white]CTRL+Q[/]", id="hints-right")
 
+    _idle_phase = 0.0
+
+    def on_mount(self) -> None:
+        container = self.query_one("#main-container")
+        container.styles.opacity = 0.0
+        container.styles.animate("opacity", value=1.0, duration=0.3, easing="out_cubic")
+
+        # Gentle ambient life on the menu card, even with nothing running.
+        self.set_interval(0.08, self._tick_idle)
+
+    def _tick_idle(self) -> None:
+        self._idle_phase += 0.035
+        intensity = (math.sin(self._idle_phase) + 1) / 2
+        base, bright = (0x27, 0x27, 0x2a), (0x3f, 0x3f, 0x46)
+        r = int(base[0] + (bright[0] - base[0]) * intensity)
+        g = int(base[1] + (bright[1] - base[1]) * intensity)
+        b = int(base[2] + (bright[2] - base[2]) * intensity)
+        try:
+            self.query_one("#menu-card").styles.border = ("round", Color.parse(f"#{r:02x}{g:02x}{b:02x}"))
+            dot_on = math.sin(self._idle_phase * 1.4) > 0
+            dot = "[#22d3ee]●[/]" if dot_on else "[dim]●[/]"
+            self.query_one("#arcade-pulse", Static).update(f"{dot} [dim]system ready[/]")
+        except Exception:
+            pass
+
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if event.option_list.id == "menu":
-            if str(event.option.prompt) == "Get Cracking !!":
+            label = str(event.option.prompt)
+            if "Get Cracking" in label:
                 self.app.push_screen("dashboard")
-            elif str(event.option.prompt) == "API Center":
+            elif "API Center" in label:
                 self.app.push_screen("settings")
 
 class HekerApp(App):

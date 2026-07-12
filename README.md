@@ -75,4 +75,4 @@ docker rm $(docker ps -aq --filter ancestor=hekerbot-sandbox)
 ```
 
 ## 🛡️ Ethical Use & Disclaimer
-HekerBOT is for **educational and authorized security testing only**. Never use this tool against targets you do not have explicit, written permission to test. The authors are not responsible for any misuse or damage caused by this tool.
+HekerBOT is for **educational and authorized security testing only**. Never use this tool against targets you do not have explicit, written permission to test. The author not responsible for any misuse or damage caused by this tool.
